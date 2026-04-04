@@ -11,6 +11,17 @@ type TokenRow = {
   expiry_date: string | null
 }
 
+type JobRow = {
+  id: string
+  user_email: string
+  status: 'pending' | 'processing' | 'completed'
+  model: 'gpt' | 'nano_banana'
+  reference_image_id: string
+  base_image_ids: string[]
+  current_index: number
+  created_at: string
+}
+
 const envSchema = z.object({
   PORT: z.string().optional(),
   GOOGLE_CLIENT_ID: z.string().min(1),
@@ -24,7 +35,6 @@ const envSchema = z.object({
 const env = envSchema.parse(process.env)
 
 const app = Fastify({ logger: true })
-
 const supabase = createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY)
 
 const oauth2Client = new google.auth.OAuth2(
@@ -44,6 +54,10 @@ function getAuthUrl(state: string) {
 
 function normalizeEmail(email?: string) {
   return String(email || '').trim().toLowerCase()
+}
+
+function resolveUserEmail(rawEmail?: string) {
+  return normalizeEmail(rawEmail || env.ADMIN_EMAIL)
 }
 
 async function loadTokenByEmail(email: string): Promise<TokenRow | null> {
@@ -71,8 +85,38 @@ async function saveTokens(email: string, tokens: any) {
   if (error) throw error
 }
 
+async function updateJobProgress(jobId: string) {
+  const { data: tasks, error } = await supabase
+    .from('image_tasks')
+    .select('id,status,position')
+    .eq('job_id', jobId)
+    .order('position', { ascending: true })
+
+  if (error) throw error
+
+  const list = tasks || []
+  const approvedCount = list.filter((t: any) => t.status === 'approved').length
+  const hasOpen = list.some((t: any) => ['pending', 'generated', 'rejected'].includes(String(t.status)))
+
+  const nextOpen = list.find((t: any) => ['pending', 'generated', 'rejected'].includes(String(t.status)))
+  const nextIndex = nextOpen ? Number(nextOpen.position || approvedCount) : approvedCount
+
+  const nextStatus: JobRow['status'] = hasOpen ? 'processing' : 'completed'
+
+  const { error: updateError } = await supabase
+    .from('jobs')
+    .update({
+      status: nextStatus,
+      current_index: nextIndex,
+    })
+    .eq('id', jobId)
+
+  if (updateError) throw updateError
+}
+
 app.get('/health', async () => ({ ok: true, service: 'backend' }))
 
+// -------- Fase 1: Google OAuth + Drive --------
 app.get('/auth/google', async (request, reply) => {
   const q = z
     .object({
@@ -80,7 +124,7 @@ app.get('/auth/google', async (request, reply) => {
     })
     .parse(request.query)
 
-  const email = normalizeEmail(q.email || env.ADMIN_EMAIL)
+  const email = resolveUserEmail(q.email)
   if (!email) {
     return reply.code(400).send({ ok: false, error: 'email obrigatorio (query ou ADMIN_EMAIL)' })
   }
@@ -127,7 +171,7 @@ app.get('/drive/files', async (request, reply) => {
     })
     .parse(request.query)
 
-  const email = normalizeEmail(q.email || env.ADMIN_EMAIL)
+  const email = resolveUserEmail(q.email)
   if (!email) {
     return reply.code(400).send({ ok: false, error: 'email obrigatorio (query ou ADMIN_EMAIL)' })
   }
@@ -153,7 +197,6 @@ app.get('/drive/files', async (request, reply) => {
     includeItemsFromAllDrives: true,
   })
 
-  // após possíveis refreshes automáticos do client, persiste tokens atualizados
   const refreshed = oauth2Client.credentials
   if (refreshed?.refresh_token || refreshed?.access_token) {
     await saveTokens(email, {
@@ -167,6 +210,183 @@ app.get('/drive/files', async (request, reply) => {
     files: result.data.files || [],
     nextPageToken: result.data.nextPageToken || null,
   })
+})
+
+// -------- Fase 2: Jobs + Tasks --------
+app.post('/jobs', async (request, reply) => {
+  const body = z
+    .object({
+      baseImageIds: z.array(z.string().min(1)).min(1),
+      referenceImageId: z.string().min(1),
+      model: z.enum(['gpt', 'nano_banana']).default('gpt'),
+      email: z.string().email().optional(),
+    })
+    .parse(request.body)
+
+  const email = resolveUserEmail(body.email)
+  if (!email) return reply.code(400).send({ ok: false, error: 'email obrigatorio (body.email ou ADMIN_EMAIL)' })
+
+  const { data: job, error: jobError } = await supabase
+    .from('jobs')
+    .insert({
+      user_email: email,
+      status: 'pending',
+      model: body.model,
+      reference_image_id: body.referenceImageId,
+      base_image_ids: body.baseImageIds,
+      current_index: 0,
+    })
+    .select('*')
+    .single()
+
+  if (jobError) return reply.code(500).send({ ok: false, error: jobError.message })
+
+  const tasksPayload = body.baseImageIds.map((baseImageId, position) => ({
+    job_id: job.id,
+    base_image_id: baseImageId,
+    status: 'pending',
+    attempts: 0,
+    position,
+  }))
+
+  const { error: taskError } = await supabase.from('image_tasks').insert(tasksPayload)
+  if (taskError) return reply.code(500).send({ ok: false, error: taskError.message })
+
+  return reply.code(201).send({
+    ok: true,
+    job: {
+      id: job.id,
+      status: job.status,
+      model: job.model,
+      total: body.baseImageIds.length,
+    },
+  })
+})
+
+app.get('/jobs/:id', async (request, reply) => {
+  const params = z.object({ id: z.string().uuid() }).parse(request.params)
+
+  const { data: job, error: jobError } = await supabase
+    .from('jobs')
+    .select('*')
+    .eq('id', params.id)
+    .maybeSingle()
+
+  if (jobError) return reply.code(500).send({ ok: false, error: jobError.message })
+  if (!job) return reply.code(404).send({ ok: false, error: 'job nao encontrado' })
+
+  const { data: tasks, error: tasksError } = await supabase
+    .from('image_tasks')
+    .select('id,base_image_id,output_image_id,status,attempts,position,created_at,updated_at')
+    .eq('job_id', params.id)
+    .order('position', { ascending: true })
+
+  if (tasksError) return reply.code(500).send({ ok: false, error: tasksError.message })
+
+  const total = (tasks || []).length
+  const approved = (tasks || []).filter((t: any) => t.status === 'approved').length
+  const generated = (tasks || []).filter((t: any) => t.status === 'generated').length
+  const pending = (tasks || []).filter((t: any) => t.status === 'pending').length
+  const rejected = (tasks || []).filter((t: any) => t.status === 'rejected').length
+
+  const progressPct = total > 0 ? Math.round((approved / total) * 100) : 0
+
+  return reply.send({
+    ok: true,
+    job,
+    progress: {
+      total,
+      approved,
+      generated,
+      pending,
+      rejected,
+      progressPct,
+    },
+    tasks: tasks || [],
+  })
+})
+
+app.post('/jobs/:id/start', async (request, reply) => {
+  const params = z.object({ id: z.string().uuid() }).parse(request.params)
+
+  const { data: job, error: jobError } = await supabase
+    .from('jobs')
+    .select('id,status')
+    .eq('id', params.id)
+    .maybeSingle()
+
+  if (jobError) return reply.code(500).send({ ok: false, error: jobError.message })
+  if (!job) return reply.code(404).send({ ok: false, error: 'job nao encontrado' })
+
+  if (job.status === 'completed') {
+    return reply.send({ ok: true, message: 'job ja concluido', status: 'completed' })
+  }
+
+  const { error: updateError } = await supabase.from('jobs').update({ status: 'processing' }).eq('id', params.id)
+  if (updateError) return reply.code(500).send({ ok: false, error: updateError.message })
+
+  return reply.send({ ok: true, message: 'job iniciado', status: 'processing' })
+})
+
+app.post('/tasks/:id/approve', async (request, reply) => {
+  const params = z.object({ id: z.string().uuid() }).parse(request.params)
+  const body = z
+    .object({
+      outputImageId: z.string().optional(),
+      outputTempUrl: z.string().optional(),
+    })
+    .parse(request.body ?? {})
+
+  const { data: task, error: taskError } = await supabase
+    .from('image_tasks')
+    .select('id,job_id,status')
+    .eq('id', params.id)
+    .maybeSingle()
+
+  if (taskError) return reply.code(500).send({ ok: false, error: taskError.message })
+  if (!task) return reply.code(404).send({ ok: false, error: 'task nao encontrada' })
+
+  const { error: updateError } = await supabase
+    .from('image_tasks')
+    .update({
+      status: 'approved',
+      output_image_id: body.outputImageId ?? null,
+      output_temp_url: body.outputTempUrl ?? null,
+    })
+    .eq('id', params.id)
+
+  if (updateError) return reply.code(500).send({ ok: false, error: updateError.message })
+
+  await updateJobProgress(task.job_id)
+
+  return reply.send({ ok: true, message: 'task aprovada' })
+})
+
+app.post('/tasks/:id/reject', async (request, reply) => {
+  const params = z.object({ id: z.string().uuid() }).parse(request.params)
+
+  const { data: task, error: taskError } = await supabase
+    .from('image_tasks')
+    .select('id,job_id,attempts')
+    .eq('id', params.id)
+    .maybeSingle()
+
+  if (taskError) return reply.code(500).send({ ok: false, error: taskError.message })
+  if (!task) return reply.code(404).send({ ok: false, error: 'task nao encontrada' })
+
+  const { error: updateError } = await supabase
+    .from('image_tasks')
+    .update({
+      status: 'rejected',
+      attempts: Number(task.attempts || 0) + 1,
+    })
+    .eq('id', params.id)
+
+  if (updateError) return reply.code(500).send({ ok: false, error: updateError.message })
+
+  await updateJobProgress(task.job_id)
+
+  return reply.send({ ok: true, message: 'task rejeitada e marcada para reprocesso', attempts: Number(task.attempts || 0) + 1 })
 })
 
 const port = Number(env.PORT || 8787)

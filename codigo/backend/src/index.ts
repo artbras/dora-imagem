@@ -31,6 +31,7 @@ const envSchema = z.object({
   SUPABASE_URL: z.string().url(),
   SUPABASE_SERVICE_ROLE_KEY: z.string().min(1),
   ADMIN_EMAIL: z.string().email().optional(),
+  GOOGLE_DRIVE_RESULTS_FOLDER_ID: z.string().min(1),
   REDIS_URL: z.string().default('redis://127.0.0.1:6379'),
   QUEUE_NAME: z.string().default('dora-image-jobs'),
 })
@@ -268,13 +269,70 @@ app.post('/tasks/:id/approve', async (request, reply) => {
   const params = z.object({ id: z.string().uuid() }).parse(request.params)
   const body = z.object({ outputImageId: z.string().optional(), outputTempUrl: z.string().optional() }).parse(request.body ?? {})
 
-  const { data: task, error: taskError } = await supabase.from('image_tasks').select('id,job_id').eq('id', params.id).maybeSingle()
+  const { data: task, error: taskError } = await supabase
+    .from('image_tasks')
+    .select('id,job_id,position,output_temp_url')
+    .eq('id', params.id)
+    .maybeSingle()
   if (taskError) return reply.code(500).send({ ok: false, error: taskError.message })
   if (!task) return reply.code(404).send({ ok: false, error: 'task nao encontrada' })
 
+  const { data: jobRow, error: jobError } = await supabase
+    .from('jobs')
+    .select('id,user_email')
+    .eq('id', task.job_id)
+    .maybeSingle()
+  if (jobError) return reply.code(500).send({ ok: false, error: jobError.message })
+  if (!jobRow) return reply.code(404).send({ ok: false, error: 'job nao encontrado' })
+
+  let outputImageId = body.outputImageId || null
+  const tempUrl = body.outputTempUrl || task.output_temp_url || null
+
+  if (!outputImageId && tempUrl && tempUrl.startsWith('data:')) {
+    const tokenRow = await loadTokenByEmail(jobRow.user_email)
+    if (!tokenRow) return reply.code(404).send({ ok: false, error: 'tokens Google nao encontrados para este email' })
+
+    oauth2Client.setCredentials({
+      access_token: tokenRow.access_token ?? undefined,
+      refresh_token: tokenRow.refresh_token,
+      expiry_date: tokenRow.expiry_date ? new Date(tokenRow.expiry_date).getTime() : undefined,
+    })
+
+    const match = tempUrl.match(/^data:(.*?);base64,(.*)$/)
+    if (match) {
+      const mimeType = match[1] || 'application/octet-stream'
+      const bytes = Buffer.from(match[2], 'base64')
+      const drive = google.drive({ version: 'v3', auth: oauth2Client })
+      const fileName = `job-${task.job_id}-task-${task.position}-${Date.now()}.bin`
+      const uploadRes = await drive.files.create({
+        requestBody: {
+          name: fileName,
+          parents: [env.GOOGLE_DRIVE_RESULTS_FOLDER_ID],
+          mimeType,
+        },
+        media: {
+          mimeType,
+          body: Buffer.from(bytes),
+        },
+        fields: 'id',
+        supportsAllDrives: true,
+      })
+
+      outputImageId = uploadRes.data.id || null
+
+      const refreshed = oauth2Client.credentials
+      if (refreshed?.refresh_token || refreshed?.access_token) {
+        await saveTokens(jobRow.user_email, {
+          ...refreshed,
+          refresh_token: refreshed.refresh_token ?? tokenRow.refresh_token,
+        })
+      }
+    }
+  }
+
   const { error: updateError } = await supabase
     .from('image_tasks')
-    .update({ status: 'approved', output_image_id: body.outputImageId ?? null, output_temp_url: body.outputTempUrl ?? null })
+    .update({ status: 'approved', output_image_id: outputImageId, output_temp_url: tempUrl })
     .eq('id', params.id)
 
   if (updateError) return reply.code(500).send({ ok: false, error: updateError.message })
@@ -282,7 +340,7 @@ app.post('/tasks/:id/approve', async (request, reply) => {
   await updateJobProgress(task.job_id)
   await enqueueJobProcessing(task.job_id)
 
-  return reply.send({ ok: true, message: 'task aprovada' })
+  return reply.send({ ok: true, message: 'task aprovada', outputImageId })
 })
 
 app.post('/tasks/:id/reject', async (request, reply) => {

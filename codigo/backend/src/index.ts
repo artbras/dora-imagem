@@ -23,6 +23,11 @@ type JobRow = {
   created_at: string
 }
 
+type AuthUser = {
+  id: string
+  email: string
+}
+
 const envSchema = z.object({
   PORT: z.string().optional(),
   GOOGLE_CLIENT_ID: z.string().min(1),
@@ -63,6 +68,30 @@ function normalizeEmail(email?: string) {
 
 function resolveUserEmail(rawEmail?: string) {
   return normalizeEmail(rawEmail || env.ADMIN_EMAIL)
+}
+
+async function authenticateRequest(request: any, reply: any): Promise<AuthUser | null> {
+  const authHeader = String(request.headers?.authorization || '')
+  const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7).trim() : ''
+  if (!token) {
+    reply.code(401).send({ ok: false, error: 'unauthorized: missing bearer token' })
+    return null
+  }
+
+  const { data, error } = await supabase.auth.getUser(token)
+  if (error || !data.user?.email) {
+    reply.code(401).send({ ok: false, error: 'unauthorized: invalid token' })
+    return null
+  }
+
+  const userEmail = normalizeEmail(data.user.email)
+  const adminEmail = normalizeEmail(env.ADMIN_EMAIL)
+  if (adminEmail && userEmail !== adminEmail) {
+    reply.code(403).send({ ok: false, error: 'forbidden: admin access required' })
+    return null
+  }
+
+  return { id: data.user.id, email: userEmail }
 }
 
 async function enqueueJobProcessing(jobId: string) {
@@ -121,17 +150,20 @@ async function updateJobProgress(jobId: string) {
 app.get('/health', async () => ({ ok: true, service: 'backend' }))
 
 app.get('/auth/google', async (request, reply) => {
-  const q = z.object({ email: z.string().email().optional() }).parse(request.query)
-  const email = resolveUserEmail(q.email)
+  const auth = await authenticateRequest(request, reply)
+  if (!auth) return
+
+  const q = z.object({ email: z.string().email().optional(), returnTo: z.string().url().optional() }).parse(request.query)
+  const email = resolveUserEmail(q.email || auth.email)
   if (!email) return reply.code(400).send({ ok: false, error: 'email obrigatorio (query ou ADMIN_EMAIL)' })
 
-  const state = Buffer.from(JSON.stringify({ email }), 'utf8').toString('base64url')
+  const state = Buffer.from(JSON.stringify({ email, returnTo: q.returnTo || null }), 'utf8').toString('base64url')
   return reply.redirect(getAuthUrl(state))
 })
 
 app.get('/auth/callback', async (request, reply) => {
   const q = z.object({ code: z.string().min(1), state: z.string().min(1) }).parse(request.query)
-  const state = JSON.parse(Buffer.from(q.state, 'base64url').toString('utf8')) as { email?: string }
+  const state = JSON.parse(Buffer.from(q.state, 'base64url').toString('utf8')) as { email?: string; returnTo?: string | null }
   const email = normalizeEmail(state.email)
   if (!email) return reply.code(400).send({ ok: false, error: 'state/email invalido' })
 
@@ -145,17 +177,27 @@ app.get('/auth/callback', async (request, reply) => {
   }
 
   await saveTokens(email, tokens)
+
+  if (state.returnTo) {
+    const url = new URL(state.returnTo)
+    url.searchParams.set('drive', 'connected')
+    return reply.redirect(url.toString())
+  }
+
   return reply.send({ ok: true, email, message: 'Google OAuth conectado com sucesso' })
 })
 
 app.get('/drive/files', async (request, reply) => {
+  const auth = await authenticateRequest(request, reply)
+  if (!auth) return
+
   const q = z.object({
     folderId: z.string().min(1),
     email: z.string().email().optional(),
     pageSize: z.coerce.number().int().min(1).max(200).default(50),
   }).parse(request.query)
 
-  const email = resolveUserEmail(q.email)
+  const email = resolveUserEmail(q.email || auth.email)
   if (!email) return reply.code(400).send({ ok: false, error: 'email obrigatorio (query ou ADMIN_EMAIL)' })
 
   const tokenRow = await loadTokenByEmail(email)
@@ -185,6 +227,9 @@ app.get('/drive/files', async (request, reply) => {
 })
 
 app.post('/jobs', async (request, reply) => {
+  const auth = await authenticateRequest(request, reply)
+  if (!auth) return
+
   const body = z.object({
     baseImageIds: z.array(z.string().min(1)).min(1),
     referenceImageId: z.string().min(1),
@@ -192,7 +237,7 @@ app.post('/jobs', async (request, reply) => {
     email: z.string().email().optional(),
   }).parse(request.body)
 
-  const email = resolveUserEmail(body.email)
+  const email = resolveUserEmail(body.email || auth.email)
   if (!email) return reply.code(400).send({ ok: false, error: 'email obrigatorio (body.email ou ADMIN_EMAIL)' })
 
   const { data: job, error: jobError } = await supabase
@@ -225,6 +270,9 @@ app.post('/jobs', async (request, reply) => {
 })
 
 app.get('/jobs/:id', async (request, reply) => {
+  const auth = await authenticateRequest(request, reply)
+  if (!auth) return
+
   const params = z.object({ id: z.string().uuid() }).parse(request.params)
 
   const { data: job, error: jobError } = await supabase.from('jobs').select('*').eq('id', params.id).maybeSingle()
@@ -250,6 +298,9 @@ app.get('/jobs/:id', async (request, reply) => {
 })
 
 app.post('/jobs/:id/start', async (request, reply) => {
+  const auth = await authenticateRequest(request, reply)
+  if (!auth) return
+
   const params = z.object({ id: z.string().uuid() }).parse(request.params)
 
   const { data: job, error: jobError } = await supabase.from('jobs').select('id,status').eq('id', params.id).maybeSingle()
@@ -266,6 +317,9 @@ app.post('/jobs/:id/start', async (request, reply) => {
 })
 
 app.post('/tasks/:id/approve', async (request, reply) => {
+  const auth = await authenticateRequest(request, reply)
+  if (!auth) return
+
   const params = z.object({ id: z.string().uuid() }).parse(request.params)
   const body = z.object({ outputImageId: z.string().optional(), outputTempUrl: z.string().optional() }).parse(request.body ?? {})
 
@@ -344,6 +398,9 @@ app.post('/tasks/:id/approve', async (request, reply) => {
 })
 
 app.post('/tasks/:id/reject', async (request, reply) => {
+  const auth = await authenticateRequest(request, reply)
+  if (!auth) return
+
   const params = z.object({ id: z.string().uuid() }).parse(request.params)
 
   const { data: task, error: taskError } = await supabase.from('image_tasks').select('id,job_id,attempts').eq('id', params.id).maybeSingle()

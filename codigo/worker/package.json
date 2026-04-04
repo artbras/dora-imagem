@@ -9,7 +9,10 @@
     "start": "node dist/index.js"
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.57.4",
     "bullmq": "^5.56.6",
+    "dotenv": "^16.6.1",
+    "googleapis": "^150.0.1",
     "ioredis": "^5.6.1"
   },
   "devDependencies": {

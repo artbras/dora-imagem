@@ -9,6 +9,8 @@ Processa jobs da fila `dora-image-jobs` (BullMQ).
 - Executa adapter (GPT / NanoBanana via feature-flag)
 - Salva resultado temporário em `output_temp_url`
 - Marca task como `generated`
+- Retry automático de falha IA (1x)
+- Registro em `processing_logs`
 
 ## Variáveis necessárias
 - `SUPABASE_URL`

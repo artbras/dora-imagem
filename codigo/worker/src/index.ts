@@ -61,7 +61,28 @@ const oauth2Client = new google.auth.OAuth2(
 )
 const drive = google.drive({ version: 'v3', auth: oauth2Client })
 
+async function writeLog(input: {
+  jobId: string
+  taskId?: string | null
+  model?: string | null
+  processingTimeMs?: number | null
+  attempts?: number | null
+  status: string
+  message?: string | null
+}) {
+  await supabase.from('processing_logs').insert({
+    job_id: input.jobId,
+    task_id: input.taskId ?? null,
+    model: input.model ?? null,
+    processing_time_ms: input.processingTimeMs ?? null,
+    attempts: input.attempts ?? null,
+    status: input.status,
+    message: input.message ?? null,
+  })
+}
+
 async function processNextImage(jobId: string) {
+  const startedAt = Date.now()
   const { data: appConfig } = await supabase
     .from('app_config')
     .select('prompt_positive,prompt_negative,feature_nano_banana')
@@ -113,32 +134,83 @@ async function processNextImage(jobId: string) {
     return
   }
 
-  const [baseResp, refResp] = await Promise.all([
-    drive.files.get({ fileId: task.base_image_id, alt: 'media', supportsAllDrives: true }, { responseType: 'arraybuffer' }),
-    drive.files.get({ fileId: jobRow.reference_image_id, alt: 'media', supportsAllDrives: true }, { responseType: 'arraybuffer' }),
-  ])
+  try {
+    const [baseResp, refResp] = await Promise.all([
+      drive.files.get({ fileId: task.base_image_id, alt: 'media', supportsAllDrives: true }, { responseType: 'arraybuffer' }),
+      drive.files.get({ fileId: jobRow.reference_image_id, alt: 'media', supportsAllDrives: true }, { responseType: 'arraybuffer' }),
+    ])
 
-  const baseImage = Buffer.from(baseResp.data as ArrayBuffer)
-  const referenceImage = Buffer.from(refResp.data as ArrayBuffer)
+    const baseImage = Buffer.from(baseResp.data as ArrayBuffer)
+    const referenceImage = Buffer.from(refResp.data as ArrayBuffer)
 
-  const adapter = getModelAdapter(String(jobRow.model || 'gpt'), featureNanoBanana)
-  const output = await adapter.generate({ baseImage, referenceImage, promptPositive, promptNegative })
+    const adapter = getModelAdapter(String(jobRow.model || 'gpt'), featureNanoBanana)
+    const output = await adapter.generate({ baseImage, referenceImage, promptPositive, promptNegative })
 
-  const tempPayload = `data:application/octet-stream;base64,${output.toString('base64')}`
+    const tempPayload = `data:application/octet-stream;base64,${output.toString('base64')}`
 
-  const { error: updateTaskError } = await supabase
-    .from('image_tasks')
-    .update({ status: 'generated', output_temp_url: tempPayload })
-    .eq('id', task.id)
+    const { error: updateTaskError } = await supabase
+      .from('image_tasks')
+      .update({ status: 'generated', output_temp_url: tempPayload })
+      .eq('id', task.id)
 
-  if (updateTaskError) throw updateTaskError
+    if (updateTaskError) throw updateTaskError
 
-  await supabase
-    .from('jobs')
-    .update({ status: 'processing', current_index: Number(task.position || 0) })
-    .eq('id', jobId)
+    await supabase
+      .from('jobs')
+      .update({ status: 'processing', current_index: Number(task.position || 0) })
+      .eq('id', jobId)
 
-  console.log('[worker] generated task', { jobId, taskId: task.id, position: task.position })
+    await writeLog({
+      jobId,
+      taskId: task.id,
+      model: String(jobRow.model || 'gpt'),
+      processingTimeMs: Date.now() - startedAt,
+      attempts: Number(task.attempts || 0),
+      status: 'generated',
+      message: 'task gerada com sucesso',
+    })
+
+    console.log('[worker] generated task', { jobId, taskId: task.id, position: task.position })
+  } catch (error: any) {
+    const nextAttempts = Number(task.attempts || 0) + 1
+
+    if (nextAttempts <= 1) {
+      await supabase
+        .from('image_tasks')
+        .update({ status: 'pending', attempts: nextAttempts })
+        .eq('id', task.id)
+
+      await writeLog({
+        jobId,
+        taskId: task.id,
+        model: String(jobRow.model || 'gpt'),
+        processingTimeMs: Date.now() - startedAt,
+        attempts: nextAttempts,
+        status: 'retry_scheduled',
+        message: String(error?.message || error),
+      })
+
+      await queue.add('process-job', { jobId }, { removeOnComplete: 100, removeOnFail: 1000 })
+      return
+    }
+
+    await supabase
+      .from('image_tasks')
+      .update({ status: 'rejected', attempts: nextAttempts })
+      .eq('id', task.id)
+
+    await writeLog({
+      jobId,
+      taskId: task.id,
+      model: String(jobRow.model || 'gpt'),
+      processingTimeMs: Date.now() - startedAt,
+      attempts: nextAttempts,
+      status: 'failed',
+      message: String(error?.message || error),
+    })
+
+    throw error
+  }
 }
 
 new Worker(

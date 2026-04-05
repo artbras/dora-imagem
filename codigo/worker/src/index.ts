@@ -9,6 +9,8 @@ type JobPayload = { jobId: string }
 type ProcessInput = {
   baseImage: Buffer
   referenceImage: Buffer
+  baseMimeType: 'image/png' | 'image/jpeg' | 'image/webp'
+  referenceMimeType: 'image/png' | 'image/jpeg' | 'image/webp'
   promptPositive: string
   promptNegative: string
 }
@@ -27,8 +29,11 @@ class GPTAdapter implements ImageProcessor {
 
   async generate(params: ProcessInput): Promise<Buffer> {
     const model = process.env.OPENAI_IMAGE_MODEL || 'gpt-image-1'
-    const base = await toFile(params.baseImage, 'base.png')
-    const ref = await toFile(params.referenceImage, 'reference.png')
+    const baseExt = params.baseMimeType === 'image/jpeg' ? 'jpg' : params.baseMimeType === 'image/webp' ? 'webp' : 'png'
+    const refExt = params.referenceMimeType === 'image/jpeg' ? 'jpg' : params.referenceMimeType === 'image/webp' ? 'webp' : 'png'
+
+    const base = await toFile(params.baseImage, `base.${baseExt}`, { type: params.baseMimeType })
+    const ref = await toFile(params.referenceImage, `reference.${refExt}`, { type: params.referenceMimeType })
 
     const prompt = [
       params.promptPositive || 'Substituir o tecido com base na referência.',
@@ -62,8 +67,9 @@ function getModelAdapter(model: string, featureNanoBanana: boolean): ImageProces
   return new GPTAdapter()
 }
 
-function detectMimeFromBytes(buf: Buffer): 'image/png' | 'image/jpeg' {
+function detectMimeFromBytes(buf: Buffer): 'image/png' | 'image/jpeg' | 'image/webp' {
   if (buf.length > 3 && buf[0] === 0xff && buf[1] === 0xd8 && buf[2] === 0xff) return 'image/jpeg'
+  if (buf.length > 11 && buf.toString('ascii', 0, 4) === 'RIFF' && buf.toString('ascii', 8, 12) === 'WEBP') return 'image/webp'
   return 'image/png'
 }
 
@@ -173,10 +179,19 @@ async function processNextImage(jobId: string) {
 
     const baseImage = Buffer.from(baseResp.data as ArrayBuffer)
     const referenceImage = Buffer.from(refResp.data as ArrayBuffer)
+    const baseMimeType = detectMimeFromBytes(baseImage)
+    const referenceMimeType = detectMimeFromBytes(referenceImage)
 
     const currentModel = String(jobRow.model || 'gpt')
     const adapter = getModelAdapter(currentModel, featureNanoBanana)
-    const output = await adapter.generate({ baseImage, referenceImage, promptPositive, promptNegative })
+    const output = await adapter.generate({
+      baseImage,
+      referenceImage,
+      baseMimeType,
+      referenceMimeType,
+      promptPositive,
+      promptNegative,
+    })
 
     let tempPayload = ''
     if (currentModel === 'gpt') {
@@ -216,7 +231,7 @@ async function processNextImage(jobId: string) {
       processingTimeMs: Date.now() - startedAt,
       attempts: Number(task.attempts || 0),
       status: 'generated',
-      message: 'task gerada com sucesso',
+      message: `task gerada com sucesso | model=${currentModel} | prompt+=${promptPositive.length} chars | prompt-=${promptNegative.length} chars`,
     })
 
     console.log('[worker] generated task', { jobId, taskId: task.id, position: task.position })

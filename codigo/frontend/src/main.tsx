@@ -430,6 +430,12 @@ function App() {
               <h3>Job atual</h3>
               <p>Status: {jobStatus}</p>
               <p>Progresso: {progress?.approved ?? 0}/{progress?.total ?? 0} ({progress?.progressPct ?? 0}%)</p>
+              <div className="progress-wrap" aria-label="Progresso da geração">
+                <div className="progress-bar" style={{ width: `${progress?.progressPct ?? 0}%` }} />
+              </div>
+              {jobStatus === 'processing' && !generatedTask && (
+                <p className="processing-hint">⏳ Processando imagem... consultando periodicamente a resposta da LLM.</p>
+              )}
 
               <h4>Tela de aprovação</h4>
               {!generatedTask ? <p>Nenhuma imagem aguardando aprovação.</p> : (
@@ -498,6 +504,10 @@ style.innerHTML = `
   .approval-img { width:100%; max-height:260px; object-fit:contain; border-radius:10px; margin-top:8px; background:#0a1018; }
   .thumb-badge { display:inline-block; font-size:10px; background:#113d2d; color:#9cffd5; border:1px solid #1d6d4f; border-radius:999px; padding:2px 8px; width:max-content; }
   .thumb-card span { font-size:12px; opacity:.9; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .progress-wrap { width:100%; height:10px; border-radius:999px; background:#0a1018; border:1px solid rgba(106,255,191,.25); overflow:hidden; margin:8px 0; }
+  .progress-bar { height:100%; background: linear-gradient(90deg, #2cae84, #69ffc0); transition: width .5s ease; }
+  .processing-hint { font-size:12px; color:#9fd6ff; animation: pulse 1.4s ease-in-out infinite; }
+  @keyframes pulse { 0%,100%{opacity:.5} 50%{opacity:1} }
   input, select, textarea, button { border-radius:10px; border:1px solid rgba(106,255,191,.25); background:#0d1522; color:#eaf2ff; padding:10px; }
   button { background: linear-gradient(180deg, #23334d, #18263d); cursor:pointer; }
   button:hover { border-color: rgba(106,255,191,.55); }

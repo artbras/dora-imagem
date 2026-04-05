@@ -261,7 +261,7 @@ app.get('/drive/thumbnail', async (request, reply) => {
       )
       const buf = Buffer.from(media.data as ArrayBuffer)
       reply.header('content-type', mimeType || 'image/jpeg')
-      reply.header('cache-control', 'private, max-age=300')
+      reply.header('cache-control', 'public, max-age=86400, stale-while-revalidate=604800')
       return reply.send(buf)
     }
 
@@ -270,7 +270,7 @@ app.get('/drive/thumbnail', async (request, reply) => {
       const r = await fetch(thumbLink)
       const ab = await r.arrayBuffer()
       reply.header('content-type', r.headers.get('content-type') || 'image/jpeg')
-      reply.header('cache-control', 'private, max-age=300')
+      reply.header('cache-control', 'public, max-age=86400, stale-while-revalidate=604800')
       return reply.send(Buffer.from(ab))
     }
 

@@ -126,12 +126,21 @@ function App() {
     try {
       const data = await apiGet(`/drive/files?folderId=${encodeURIComponent(folderId)}&email=${encodeURIComponent(adminEmail)}`)
       const files = ((data.files || []) as DriveFile[]).filter((f) => String(f.mimeType || '').startsWith('image/'))
-      if (type === 'base') setBaseFiles(files)
-      else {
-        setRefFiles(files)
+      if (type === 'base') {
+        setBaseFiles((prev) => {
+          const seen = new Set(prev.map((p) => p.id))
+          const onlyNew = files.filter((f) => !seen.has(f.id))
+          return onlyNew.length ? [...prev, ...onlyNew] : prev
+        })
+      } else {
+        setRefFiles((prev) => {
+          const seen = new Set(prev.map((p) => p.id))
+          const onlyNew = files.filter((f) => !seen.has(f.id))
+          return onlyNew.length ? [...prev, ...onlyNew] : prev
+        })
         if (!referenceImageId && files[0]?.id) setReferenceImageId(files[0].id)
       }
-      if (!silent) setMsg(`Arquivos ${type === 'base' ? 'base' : 'referência'} carregados: ${files.length}`)
+      if (!silent) setMsg(`Sincronização de ${type === 'base' ? 'base' : 'referência'} concluída (${files.length} no Drive).`)
       return files.length
     } catch (e: any) {
       const errorMsg = String(e?.message || e)

@@ -106,7 +106,7 @@ function App() {
     window.location.href = `${apiBase}/auth/google?email=${encodeURIComponent(email)}&returnTo=${returnTo}`
   }
 
-  async function loadDriveFiles(type: 'base' | 'ref') {
+  async function loadDriveFiles(type: 'base' | 'ref', silent = false) {
     const folderId = type === 'base' ? baseFolderId : refFolderId
     if (!folderId) return
     setBusy(true)
@@ -115,9 +115,9 @@ function App() {
       const files = (data.files || []) as DriveFile[]
       if (type === 'base') setBaseFiles(files)
       else setRefFiles(files)
-      setMsg(`Arquivos ${type === 'base' ? 'base' : 'referência'} carregados: ${files.length}`)
+      if (!silent) setMsg(`Arquivos ${type === 'base' ? 'base' : 'referência'} carregados: ${files.length}`)
     } catch (e: any) {
-      setMsg(`Falha ao carregar Drive (${type}): ${String(e?.message || e)}`)
+      if (!silent) setMsg(`Falha ao carregar Drive (${type}): ${String(e?.message || e)}`)
     } finally {
       setBusy(false)
     }
@@ -189,6 +189,16 @@ function App() {
       setBusy(false)
     }
   }
+
+  useEffect(() => {
+    if (!session) return
+    if (!baseFolderId || !refFolderId) return
+    void Promise.all([
+      loadDriveFiles('base', true),
+      loadDriveFiles('ref', true),
+    ])
+    setMsg('Imagens das pastas Base e Referência carregadas automaticamente.')
+  }, [session, baseFolderId, refFolderId])
 
   useEffect(() => {
     if (!jobId) return

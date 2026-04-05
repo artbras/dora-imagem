@@ -57,8 +57,52 @@ class GPTAdapter implements ImageProcessor {
 
 class NanoBananaAdapter implements ImageProcessor {
   async generate(params: ProcessInput): Promise<Buffer> {
-    const text = `generated:nano_banana:${params.baseImage.length}:${params.referenceImage.length}`
-    return Buffer.from(text, 'utf8')
+    const apiKey = process.env.NANO_BANANA_API_KEY
+    if (!apiKey) throw new Error('NANO_BANANA_API_KEY ausente para NanoBananaAdapter')
+
+    const model = process.env.NANO_BANANA_MODEL || 'gemini-2.5-flash-image-preview'
+
+    const prompt = [
+      params.promptPositive || 'Substituir o tecido com base na referência.',
+      params.promptNegative ? `Evitar: ${params.promptNegative}` : '',
+      'Use a primeira imagem como base e a segunda como referência de tecido/estampa.',
+      'Manter enquadramento, iluminação e elementos do cenário. Alterar apenas o tecido.',
+    ].filter(Boolean).join('\n')
+
+    const body = {
+      contents: [
+        {
+          role: 'user',
+          parts: [
+            { text: prompt },
+            { inlineData: { mimeType: params.baseMimeType, data: params.baseImage.toString('base64') } },
+            { inlineData: { mimeType: params.referenceMimeType, data: params.referenceImage.toString('base64') } },
+          ],
+        },
+      ],
+      generationConfig: {
+        responseModalities: ['TEXT', 'IMAGE'],
+      },
+    }
+
+    const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    })
+
+    const json: any = await res.json().catch(() => ({}))
+    if (!res.ok) {
+      const msg = json?.error?.message || `Gemini API error ${res.status}`
+      throw new Error(msg)
+    }
+
+    const parts = json?.candidates?.[0]?.content?.parts || []
+    const imagePart = parts.find((p: any) => p?.inlineData?.data)
+    const b64 = imagePart?.inlineData?.data
+    if (!b64) throw new Error('Gemini não retornou imagem (inlineData)')
+
+    return Buffer.from(b64, 'base64')
   }
 }
 

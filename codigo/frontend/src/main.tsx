@@ -369,7 +369,7 @@ function App() {
                     aria-pressed={model === 'gpt'}
                     title="GPT"
                   >
-                    <span className="llm-logo gpt">GPT</span>
+                    <img src="/logo-gpt.jpg" alt="GPT" className="llm-logo-img" />
                   </button>
                   <button
                     type="button"
@@ -378,7 +378,7 @@ function App() {
                     aria-pressed={model === 'nano_banana'}
                     title="Nano Banana (Google)"
                   >
-                    <span className="llm-logo google">G</span>
+                    <img src="/logo-google.jpg" alt="Google" className="llm-logo-img" />
                   </button>
                 </div>
               </div>
@@ -483,9 +483,7 @@ style.innerHTML = `
   .llm-switch.compact { display:flex; gap:6px; }
   .llm-btn { display:flex; align-items:center; justify-content:center; gap:6px; padding:6px 8px; min-width:40px; border-radius:999px; }
   .llm-btn.active { border-color: rgba(106,255,191,.9); box-shadow: 0 0 0 1px rgba(106,255,191,.45) inset; }
-  .llm-logo { width:20px; height:20px; border-radius:999px; display:grid; place-items:center; font-size:9px; font-weight:700; }
-  .llm-logo.gpt { background: linear-gradient(180deg, #1d9d7a, #0f6e57); color: #e8fff8; }
-  .llm-logo.google { background: linear-gradient(180deg, #4285F4 0%, #34A853 55%, #FBBC05 80%, #EA4335 100%); color: white; font-size:14px; }
+  .llm-logo-img { width:20px; height:20px; border-radius:999px; object-fit:cover; background:#fff; }
   .msg { color:#9fd6ff; }
 `
 document.head.appendChild(style)

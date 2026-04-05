@@ -2,7 +2,6 @@ import 'dotenv/config'
 import { Queue, Worker, Job } from 'bullmq'
 import { createClient } from '@supabase/supabase-js'
 import { google } from 'googleapis'
-import OpenAI, { toFile } from 'openai'
 
 type JobPayload = { jobId: string }
 
@@ -18,35 +17,10 @@ interface ImageProcessor {
 }
 
 class GPTAdapter implements ImageProcessor {
-  private client: OpenAI
-
-  constructor() {
-    if (!process.env.OPENAI_API_KEY) throw new Error('OPENAI_API_KEY ausente para GPTAdapter')
-    this.client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
-  }
-
   async generate(params: ProcessInput): Promise<Buffer> {
-    const model = process.env.OPENAI_IMAGE_MODEL || 'gpt-image-1'
-    const base = await toFile(params.baseImage, 'base.png')
-    const ref = await toFile(params.referenceImage, 'reference.png')
-
-    const prompt = [
-      params.promptPositive || 'Substituir o tecido usando a imagem de referência.',
-      params.promptNegative ? `Evite: ${params.promptNegative}` : '',
-      'Use a primeira imagem como base e a segunda como referência de tecido/estampa.',
-      'Mantenha composição, iluminação e produtos originais; altere apenas o tecido.',
-    ].filter(Boolean).join('\n')
-
-    const result: any = await this.client.images.edit({
-      model,
-      image: [base, ref] as any,
-      prompt,
-      size: '1024x1024',
-    })
-
-    const b64 = result?.data?.[0]?.b64_json
-    if (!b64) throw new Error('OpenAI não retornou b64_json da imagem')
-    return Buffer.from(b64, 'base64')
+    // MVP: placeholder com payload mínimo; na próxima fase entra chamada real da OpenAI Images API
+    const text = `generated:gpt:${params.baseImage.length}:${params.referenceImage.length}`
+    return Buffer.from(text, 'utf8')
   }
 }
 
@@ -169,27 +143,21 @@ async function processNextImage(jobId: string) {
     const baseImage = Buffer.from(baseResp.data as ArrayBuffer)
     const referenceImage = Buffer.from(refResp.data as ArrayBuffer)
 
-    const currentModel = String(jobRow.model || 'gpt')
-    const adapter = getModelAdapter(currentModel, featureNanoBanana)
+    const adapter = getModelAdapter(String(jobRow.model || 'gpt'), featureNanoBanana)
     const output = await adapter.generate({ baseImage, referenceImage, promptPositive, promptNegative })
+    const outputBytes = output.length
 
-    let tempPayload = ''
-    if (currentModel === 'gpt') {
-      tempPayload = `data:image/png;base64,${output.toString('base64')}`
-    } else {
-      const outputBytes = output.length
-      const svg = `<svg xmlns='http://www.w3.org/2000/svg' width='1024' height='1024'>
-        <rect width='100%' height='100%' fill='#0b1220'/>
-        <rect x='24' y='24' width='976' height='976' rx='24' fill='#111a2b' stroke='#2a3d60'/>
-        <text x='64' y='120' fill='#9fd6ff' font-size='44' font-family='Arial'>Prévia gerada (placeholder)</text>
-        <text x='64' y='190' fill='#b8c7e6' font-size='28' font-family='Arial'>Modelo: ${currentModel}</text>
-        <text x='64' y='240' fill='#b8c7e6' font-size='24' font-family='Arial'>Base bytes: ${baseImage.length}</text>
-        <text x='64' y='280' fill='#b8c7e6' font-size='24' font-family='Arial'>Ref bytes: ${referenceImage.length}</text>
-        <text x='64' y='320' fill='#b8c7e6' font-size='24' font-family='Arial'>Output bytes: ${outputBytes}</text>
-        <text x='64' y='370' fill='#9cffd5' font-size='22' font-family='Arial'>Ao integrar LLM real, este card será a imagem final.</text>
-      </svg>`
-      tempPayload = `data:image/svg+xml;base64,${Buffer.from(svg, 'utf8').toString('base64')}`
-    }
+    const svg = `<svg xmlns='http://www.w3.org/2000/svg' width='1024' height='1024'>
+      <rect width='100%' height='100%' fill='#0b1220'/>
+      <rect x='24' y='24' width='976' height='976' rx='24' fill='#111a2b' stroke='#2a3d60'/>
+      <text x='64' y='120' fill='#9fd6ff' font-size='44' font-family='Arial'>Prévia gerada (placeholder)</text>
+      <text x='64' y='190' fill='#b8c7e6' font-size='28' font-family='Arial'>Modelo: ${String(jobRow.model || 'gpt')}</text>
+      <text x='64' y='240' fill='#b8c7e6' font-size='24' font-family='Arial'>Base bytes: ${baseImage.length}</text>
+      <text x='64' y='280' fill='#b8c7e6' font-size='24' font-family='Arial'>Ref bytes: ${referenceImage.length}</text>
+      <text x='64' y='320' fill='#b8c7e6' font-size='24' font-family='Arial'>Output bytes: ${outputBytes}</text>
+      <text x='64' y='370' fill='#9cffd5' font-size='22' font-family='Arial'>Ao integrar LLM real, este card será a imagem final.</text>
+    </svg>`
+    const tempPayload = `data:image/svg+xml;base64,${Buffer.from(svg, 'utf8').toString('base64')}`
 
     const { error: updateTaskError } = await supabase
       .from('image_tasks')

@@ -483,7 +483,7 @@ style.innerHTML = `
   .llm-switch.compact { display:flex; gap:6px; }
   .llm-btn { display:flex; align-items:center; justify-content:center; gap:6px; padding:6px 8px; min-width:40px; border-radius:999px; }
   .llm-btn.active { border-color: rgba(106,255,191,.9); box-shadow: 0 0 0 1px rgba(106,255,191,.45) inset; }
-  .llm-logo-img { width:20px; height:20px; border-radius:999px; object-fit:cover; background:#fff; }
+  .llm-logo-img { width:18px; height:18px; border-radius:4px; object-fit:contain; background:transparent; }
   .msg { color:#9fd6ff; }
 `
 document.head.appendChild(style)

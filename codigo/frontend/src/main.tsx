@@ -47,6 +47,7 @@ function App() {
   const [actionLoading, setActionLoading] = useState<string | null>(null)
   const [route, setRoute] = useState(window.location.pathname === '/config' ? '/config' : '/')
   const [zoomOpen, setZoomOpen] = useState(false)
+  const [zoomLevel, setZoomLevel] = useState(1)
 
   const generatedTask = useMemo(() => tasks.find((t) => t.status === 'generated') || null, [tasks])
 
@@ -455,7 +456,7 @@ function App() {
                       <div className="row" style={{ justifyContent: 'space-between', alignItems: 'center' }}>
                         <b>Gerada (temp)</b>
                         {generatedTask.output_temp_url?.startsWith('data:image') && (
-                          <button type="button" onClick={() => setZoomOpen(true)} title="Ampliar">🔎 Ampliar</button>
+                          <button type="button" onClick={() => { setZoomLevel(1); setZoomOpen(true) }} title="Ampliar">🔎 Ampliar</button>
                         )}
                       </div>
                       {generatedTask.output_temp_url?.startsWith('data:image') ? (
@@ -479,8 +480,13 @@ function App() {
       {zoomOpen && generatedTask?.output_temp_url?.startsWith('data:image') && (
         <div className="zoom-overlay" onClick={() => setZoomOpen(false)}>
           <div className="zoom-box" onClick={(e) => e.stopPropagation()}>
-            <button className="zoom-close" onClick={() => setZoomOpen(false)}>✕</button>
-            <img src={generatedTask.output_temp_url} alt="Gerada ampliada" className="zoom-img" />
+            <div className="zoom-toolbar">
+              <button type="button" onClick={() => setZoomLevel((z) => Math.max(1, Number((z - 0.25).toFixed(2))))}>−</button>
+              <span>{Math.round(zoomLevel * 100)}%</span>
+              <button type="button" onClick={() => setZoomLevel((z) => Math.min(4, Number((z + 0.25).toFixed(2))))}>+</button>
+              <button className="zoom-close" onClick={() => setZoomOpen(false)}>✕</button>
+            </div>
+            <img src={generatedTask.output_temp_url} alt="Gerada ampliada" className="zoom-img" style={{ transform: `scale(${zoomLevel})`, transformOrigin: 'center center' }} />
           </div>
         </div>
       )}
@@ -523,9 +529,10 @@ style.innerHTML = `
   .progress-bar { height:100%; background: linear-gradient(90deg, #2cae84, #69ffc0); transition: width .5s ease; }
   .processing-hint { font-size:12px; color:#9fd6ff; animation: pulse 1.4s ease-in-out infinite; }
   .zoom-overlay { position:fixed; inset:0; background:rgba(0,0,0,.75); display:grid; place-items:center; z-index:9999; }
-  .zoom-box { position:relative; width:min(92vw, 1100px); height:min(88vh, 900px); background:#0b1220; border:1px solid rgba(106,255,191,.25); border-radius:12px; padding:12px; }
-  .zoom-img { width:100%; height:100%; object-fit:contain; }
-  .zoom-close { position:absolute; top:8px; right:8px; z-index:2; }
+  .zoom-box { position:relative; width:min(92vw, 1100px); height:min(88vh, 900px); background:#0b1220; border:1px solid rgba(106,255,191,.25); border-radius:12px; padding:12px; overflow:auto; }
+  .zoom-toolbar { position:sticky; top:0; z-index:3; display:flex; gap:8px; align-items:center; justify-content:flex-end; margin-bottom:8px; background:rgba(11,18,32,.8); backdrop-filter: blur(4px); padding:6px; border-radius:10px; }
+  .zoom-img { width:100%; height:calc(100% - 52px); object-fit:contain; }
+  .zoom-close { z-index:2; }
   @keyframes pulse { 0%,100%{opacity:.5} 50%{opacity:1} }
   input, select, textarea, button { border-radius:10px; border:1px solid rgba(106,255,191,.25); background:#0d1522; color:#eaf2ff; padding:10px; }
   button { background: linear-gradient(180deg, #23334d, #18263d); cursor:pointer; }

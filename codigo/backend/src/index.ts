@@ -161,12 +161,14 @@ async function updateJobProgress(jobId: string) {
 app.get('/health', async () => ({ ok: true, service: 'backend' }))
 
 app.get('/auth/google', async (request, reply) => {
-  const auth = await authenticateRequest(request, reply)
-  if (!auth) return
-
   const q = z.object({ email: z.string().email().optional(), returnTo: z.string().url().optional() }).parse(request.query)
-  const email = resolveUserEmail(q.email || auth.email)
+  const email = resolveUserEmail(q.email)
   if (!email) return reply.code(400).send({ ok: false, error: 'email obrigatorio (query ou ADMIN_EMAIL)' })
+
+  const adminEmail = normalizeEmail(env.ADMIN_EMAIL)
+  if (adminEmail && email !== adminEmail) {
+    return reply.code(403).send({ ok: false, error: 'forbidden: admin access required' })
+  }
 
   const state = Buffer.from(JSON.stringify({ email, returnTo: q.returnTo || null }), 'utf8').toString('base64url')
   return reply.redirect(getAuthUrl(state))

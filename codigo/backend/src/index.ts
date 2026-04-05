@@ -1,5 +1,6 @@
 import 'dotenv/config'
 import Fastify from 'fastify'
+import cors from '@fastify/cors'
 import { google } from 'googleapis'
 import { createClient } from '@supabase/supabase-js'
 import { z } from 'zod'
@@ -44,6 +45,16 @@ const envSchema = z.object({
 const env = envSchema.parse(process.env)
 
 const app = Fastify({ logger: true })
+
+await app.register(cors, {
+  origin: [
+    'https://dora.adoromimos.com.br',
+    'https://dora-imagem-frontend.vercel.app',
+    'http://localhost:5173',
+  ],
+  credentials: true,
+})
+
 const supabase = createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY)
 const queue = new Queue(env.QUEUE_NAME, { connection: { url: env.REDIS_URL } })
 

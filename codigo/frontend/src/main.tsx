@@ -46,6 +46,7 @@ function App() {
   const [busy, setBusy] = useState(false)
   const [actionLoading, setActionLoading] = useState<string | null>(null)
   const [route, setRoute] = useState(window.location.pathname === '/config' ? '/config' : '/')
+  const [zoomOpen, setZoomOpen] = useState(false)
 
   const generatedTask = useMemo(() => tasks.find((t) => t.status === 'generated') || null, [tasks])
 
@@ -224,7 +225,7 @@ function App() {
     setBusy(true)
     setActionLoading('approve')
     try {
-      const res = await apiSend(`/tasks/${generatedTask.id}/approve`, 'POST', { outputTempUrl: generatedTask.output_temp_url })
+      const res = await apiSend(`/tasks/${generatedTask.id}/approve`, 'POST')
       const outputId = String(res?.outputImageId || '')
       const link = outputId ? `https://drive.google.com/file/d/${outputId}/view` : ''
       setMsg(link ? `Imagem aprovada e salva no Drive: ${link}` : 'Imagem aprovada e salva no Drive.')
@@ -451,7 +452,12 @@ function App() {
                       />
                     </div>
                     <div className="card inline">
-                      <b>Gerada (temp)</b>
+                      <div className="row" style={{ justifyContent: 'space-between', alignItems: 'center' }}>
+                        <b>Gerada (temp)</b>
+                        {generatedTask.output_temp_url?.startsWith('data:image') && (
+                          <button type="button" onClick={() => setZoomOpen(true)} title="Ampliar">🔎 Ampliar</button>
+                        )}
+                      </div>
                       {generatedTask.output_temp_url?.startsWith('data:image') ? (
                         <img src={generatedTask.output_temp_url} alt="Gerada" className="approval-img" />
                       ) : (
@@ -468,6 +474,15 @@ function App() {
             </section>
           )}
         </>
+      )}
+
+      {zoomOpen && generatedTask?.output_temp_url?.startsWith('data:image') && (
+        <div className="zoom-overlay" onClick={() => setZoomOpen(false)}>
+          <div className="zoom-box" onClick={(e) => e.stopPropagation()}>
+            <button className="zoom-close" onClick={() => setZoomOpen(false)}>✕</button>
+            <img src={generatedTask.output_temp_url} alt="Gerada ampliada" className="zoom-img" />
+          </div>
+        </div>
       )}
 
       {msg && <p className="msg">{msg}</p>}
@@ -507,6 +522,10 @@ style.innerHTML = `
   .progress-wrap { width:100%; height:10px; border-radius:999px; background:#0a1018; border:1px solid rgba(106,255,191,.25); overflow:hidden; margin:8px 0; }
   .progress-bar { height:100%; background: linear-gradient(90deg, #2cae84, #69ffc0); transition: width .5s ease; }
   .processing-hint { font-size:12px; color:#9fd6ff; animation: pulse 1.4s ease-in-out infinite; }
+  .zoom-overlay { position:fixed; inset:0; background:rgba(0,0,0,.75); display:grid; place-items:center; z-index:9999; }
+  .zoom-box { position:relative; width:min(92vw, 1100px); height:min(88vh, 900px); background:#0b1220; border:1px solid rgba(106,255,191,.25); border-radius:12px; padding:12px; }
+  .zoom-img { width:100%; height:100%; object-fit:contain; }
+  .zoom-close { position:absolute; top:8px; right:8px; z-index:2; }
   @keyframes pulse { 0%,100%{opacity:.5} 50%{opacity:1} }
   input, select, textarea, button { border-radius:10px; border:1px solid rgba(106,255,191,.25); background:#0d1522; color:#eaf2ff; padding:10px; }
   button { background: linear-gradient(180deg, #23334d, #18263d); cursor:pointer; }

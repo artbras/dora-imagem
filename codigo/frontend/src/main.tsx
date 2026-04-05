@@ -14,7 +14,8 @@ type JobTask = {
 }
 
 const apiBase = (import.meta.env.VITE_API_BASE_URL as string) || 'http://localhost:8787'
-const adminEmail = ((import.meta.env.VITE_ADMIN_EMAIL as string) || 'am.agente.ia@gmail.com').toLowerCase()
+const normalizeEmail = (v?: string | null) => String(v || '').trim().toLowerCase()
+const adminEmail = normalizeEmail((import.meta.env.VITE_ADMIN_EMAIL as string) || 'am.agente.ia@gmail.com')
 const defaultBaseFolder = (import.meta.env.VITE_GOOGLE_DRIVE_BASE_FOLDER_ID as string) || ''
 const defaultRefFolder = (import.meta.env.VITE_GOOGLE_DRIVE_REFERENCE_FOLDER_ID as string) || ''
 const supabaseUrl = (import.meta.env.VITE_SUPABASE_URL as string) || ''
@@ -49,7 +50,7 @@ function App() {
 
     supabase.auth.getSession().then(({ data }) => {
       setSession(data.session)
-      const userEmail = String(data.session?.user?.email || '').toLowerCase()
+      const userEmail = normalizeEmail(data.session?.user?.email)
       if (userEmail && userEmail !== adminEmail) {
         setMsg(`Acesso negado para ${userEmail}. Apenas ${adminEmail} está autorizado.`)
         supabase.auth.signOut()
@@ -59,7 +60,7 @@ function App() {
 
     const { data: sub } = supabase.auth.onAuthStateChange((_event, nextSession) => {
       setSession(nextSession)
-      const userEmail = String(nextSession?.user?.email || '').toLowerCase()
+      const userEmail = normalizeEmail(nextSession?.user?.email)
       if (userEmail && userEmail !== adminEmail) {
         setMsg(`Acesso negado para ${userEmail}. Apenas ${adminEmail} está autorizado.`)
         supabase.auth.signOut()

@@ -277,6 +277,7 @@ function App() {
       const connected = await ensureDriveConnected()
       if (!connected) return
       const [baseCount, refCount] = await Promise.all([loadDriveFiles('base', false), loadDriveFiles('ref', false)])
+      if (jobId) await loadJob(jobId)
       if (baseCount === 0 || refCount === 0) {
         setMsg(`Conexão OK, mas sem imagens carregadas (Base: ${baseCount}, Referência: ${refCount}). Clique em Atualizar imagens para revalidar.`)
       }
@@ -288,7 +289,13 @@ function App() {
     if (route === '/config') void loadConfig()
   }, [route, session])
 
-  // Atualização manual/por ação para manter operação previsível (sem polling contínuo)
+  // Auto-refresh leve enquanto job estiver em processamento para avançar automaticamente para aprovação
+  useEffect(() => {
+    if (!jobId) return
+    if (jobStatus !== 'processing') return
+    const t = setInterval(() => void loadJob(jobId), 3000)
+    return () => clearInterval(t)
+  }, [jobId, jobStatus])
 
   if (!session) {
     return (

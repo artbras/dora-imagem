@@ -345,7 +345,29 @@ function App() {
             </div>
 
             <div className="card">
-              <h3>Imagem de Referência ({refFiles.length})</h3>
+              <div className="card-head-row">
+                <h3>Imagem de Referência ({refFiles.length})</h3>
+                <div className="llm-switch compact" role="radiogroup" aria-label="Modelo da geração">
+                  <button
+                    type="button"
+                    className={`llm-btn ${model === 'gpt' ? 'active' : ''}`}
+                    onClick={() => setModel('gpt')}
+                    aria-pressed={model === 'gpt'}
+                    title="GPT"
+                  >
+                    <span className="llm-logo gpt">GPT</span>
+                  </button>
+                  <button
+                    type="button"
+                    className={`llm-btn ${model === 'nano_banana' ? 'active' : ''}`}
+                    onClick={() => setModel('nano_banana')}
+                    aria-pressed={model === 'nano_banana'}
+                    title="Nano Banana (Google)"
+                  >
+                    <span className="llm-logo google">G</span>
+                  </button>
+                </div>
+              </div>
               <div className="thumb-grid single">
                 {refFiles.map((f) => {
                   const checked = referenceImageId === f.id
@@ -365,29 +387,6 @@ function App() {
                 })}
               </div>
 
-              <label style={{ marginTop: 8 }}>Modelo da geração</label>
-              <div className="llm-switch" role="radiogroup" aria-label="Modelo da geração">
-                <button
-                  type="button"
-                  className={`llm-btn ${model === 'gpt' ? 'active' : ''}`}
-                  onClick={() => setModel('gpt')}
-                  aria-pressed={model === 'gpt'}
-                  title="GPT"
-                >
-                  <span className="llm-logo gpt">GPT</span>
-                  <span>GPT</span>
-                </button>
-                <button
-                  type="button"
-                  className={`llm-btn ${model === 'nano_banana' ? 'active' : ''}`}
-                  onClick={() => setModel('nano_banana')}
-                  aria-pressed={model === 'nano_banana'}
-                  title="Nano Banana (Google)"
-                >
-                  <span className="llm-logo google">G</span>
-                  <span>Google / Nano Banana</span>
-                </button>
-              </div>
             </div>
           </section>
 
@@ -456,8 +455,10 @@ style.innerHTML = `
   input, select, textarea, button { border-radius:10px; border:1px solid rgba(106,255,191,.25); background:#0d1522; color:#eaf2ff; padding:10px; }
   button { background: linear-gradient(180deg, #23334d, #18263d); cursor:pointer; }
   button:hover { border-color: rgba(106,255,191,.55); }
+  .card-head-row { display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:8px; }
   .llm-switch { display:grid; grid-template-columns: 1fr 1fr; gap:8px; }
-  .llm-btn { display:flex; align-items:center; justify-content:flex-start; gap:8px; padding:10px 12px; }
+  .llm-switch.compact { display:flex; gap:6px; }
+  .llm-btn { display:flex; align-items:center; justify-content:center; gap:8px; padding:8px 10px; min-width:52px; }
   .llm-btn.active { border-color: rgba(106,255,191,.9); box-shadow: 0 0 0 1px rgba(106,255,191,.45) inset; }
   .llm-logo { width:28px; height:28px; border-radius:8px; display:grid; place-items:center; font-size:11px; font-weight:700; }
   .llm-logo.gpt { background: linear-gradient(180deg, #1d9d7a, #0f6e57); color: #e8fff8; }

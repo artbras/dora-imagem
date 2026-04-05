@@ -6,6 +6,7 @@ type DriveFile = { id: string; name: string; mimeType?: string }
 type JobTask = {
   id: string
   base_image_id: string
+  output_image_id?: string | null
   output_temp_url?: string | null
   status: 'pending' | 'generated' | 'approved' | 'rejected'
   attempts: number
@@ -43,6 +44,7 @@ function App() {
 
   const [msg, setMsg] = useState('')
   const [busy, setBusy] = useState(false)
+  const [actionLoading, setActionLoading] = useState<string | null>(null)
   const [route, setRoute] = useState(window.location.pathname === '/config' ? '/config' : '/')
 
   const generatedTask = useMemo(() => tasks.find((t) => t.status === 'generated') || null, [tasks])
@@ -219,21 +221,36 @@ function App() {
   async function approveCurrent() {
     if (!generatedTask) return
     setBusy(true)
+    setActionLoading('approve')
     try {
-      await apiSend(`/tasks/${generatedTask.id}/approve`, 'POST', { outputTempUrl: generatedTask.output_temp_url })
-      setMsg('Imagem aprovada. Processando próxima...')
+      const res = await apiSend(`/tasks/${generatedTask.id}/approve`, 'POST', { outputTempUrl: generatedTask.output_temp_url })
+      const outputId = String(res?.outputImageId || '')
+      const link = outputId ? `https://drive.google.com/file/d/${outputId}/view` : ''
+      setMsg(link ? `Imagem aprovada e salva no Drive: ${link}` : 'Imagem aprovada e salva no Drive.')
       await loadJob()
-    } finally { setBusy(false) }
+    } finally { setBusy(false); setActionLoading(null) }
   }
 
   async function rejectCurrent() {
     if (!generatedTask) return
     setBusy(true)
+    setActionLoading('reject')
     try {
       await apiSend(`/tasks/${generatedTask.id}/reject`, 'POST')
-      setMsg('Imagem recusada. Reprocessando...')
+      setMsg('Imagem recusada. Reprocesso agendado.')
       await loadJob()
-    } finally { setBusy(false) }
+    } finally { setBusy(false); setActionLoading(null) }
+  }
+
+  async function generateNext() {
+    if (!jobId) return
+    setBusy(true)
+    setActionLoading('next')
+    try {
+      await apiSend(`/jobs/${jobId}/start`, 'POST')
+      await loadJob()
+      setMsg('Próxima geração enfileirada.')
+    } finally { setBusy(false); setActionLoading(null) }
   }
 
   async function ensureDriveConnected() {
@@ -270,11 +287,7 @@ function App() {
     if (route === '/config') void loadConfig()
   }, [route, session])
 
-  useEffect(() => {
-    if (!jobId) return
-    const t = setInterval(() => void loadJob(jobId), 4000)
-    return () => clearInterval(t)
-  }, [jobId])
+  // Atualização manual/por ação para manter operação previsível (sem polling contínuo)
 
   if (!session) {
     return (
@@ -337,6 +350,7 @@ function App() {
                         onChange={() => setSelectedBaseIds((prev) => prev.includes(f.id) ? prev.filter((x) => x !== f.id) : [...prev, f.id])}
                       />
                       <img src={thumb} alt={f.name} loading="lazy" />
+                      {checked && <b className="thumb-badge">Base selecionada</b>}
                       <span title={f.name}>{f.name}</span>
                     </label>
                   )
@@ -381,6 +395,7 @@ function App() {
                         onChange={() => setReferenceImageId(f.id)}
                       />
                       <img src={thumb} alt={f.name} loading="lazy" />
+                      {checked && <b className="thumb-badge">Referência ativa</b>}
                       <span title={f.name}>{f.name}</span>
                     </label>
                   )
@@ -391,8 +406,15 @@ function App() {
           </section>
 
           <div className="row" style={{ marginTop: 8 }}>
-            <button disabled={busy} onClick={async () => { setBusy(true); await Promise.all([loadDriveFiles('base', false), loadDriveFiles('ref', false)]); setBusy(false) }}>Atualizar imagens</button>
+            <button disabled={busy} onClick={async () => { setBusy(true); setActionLoading('sync'); await Promise.all([loadDriveFiles('base', false), loadDriveFiles('ref', false)]); setBusy(false); setActionLoading(null) }}>
+              {actionLoading === 'sync' ? 'Sincronizando...' : 'Atualizar imagens'}
+            </button>
             <button disabled={busy} onClick={createAndStartJob}>Iniciar processamento</button>
+            {jobId && (
+              <button disabled={busy} onClick={generateNext}>
+                {actionLoading === 'next' ? 'Enfileirando...' : 'Gerar próxima'}
+              </button>
+            )}
           </div>
 
           {jobId && (
@@ -410,8 +432,8 @@ function App() {
                     <div className="card inline"><b>Gerada (temp)</b><p>{generatedTask.output_temp_url?.slice(0, 120) || 'Sem output'}</p></div>
                   </div>
                   <div className="row">
-                    <button disabled={busy} onClick={approveCurrent}>✅ Aprovar</button>
-                    <button disabled={busy} onClick={rejectCurrent}>❌ Recusar</button>
+                    <button disabled={busy} onClick={approveCurrent}>{actionLoading === 'approve' ? 'Aprovando...' : '✅ Aprovar'}</button>
+                    <button disabled={busy} onClick={rejectCurrent}>{actionLoading === 'reject' ? 'Recusando...' : '❌ Recusar'}</button>
                   </div>
                 </>
               )}
@@ -451,6 +473,7 @@ style.innerHTML = `
   .thumb-card.selected { border-color: rgba(106,255,191,.9); box-shadow: 0 0 0 1px rgba(106,255,191,.4) inset; }
   .thumb-card input { align-self:flex-start; }
   .thumb-card img { width:100%; height:120px; object-fit:cover; border-radius:8px; background:#0a1018; }
+  .thumb-badge { display:inline-block; font-size:10px; background:#113d2d; color:#9cffd5; border:1px solid #1d6d4f; border-radius:999px; padding:2px 8px; width:max-content; }
   .thumb-card span { font-size:12px; opacity:.9; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   input, select, textarea, button { border-radius:10px; border:1px solid rgba(106,255,191,.25); background:#0d1522; color:#eaf2ff; padding:10px; }
   button { background: linear-gradient(180deg, #23334d, #18263d); cursor:pointer; }
@@ -458,9 +481,9 @@ style.innerHTML = `
   .card-head-row { display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:8px; }
   .llm-switch { display:grid; grid-template-columns: 1fr 1fr; gap:8px; }
   .llm-switch.compact { display:flex; gap:6px; }
-  .llm-btn { display:flex; align-items:center; justify-content:center; gap:8px; padding:8px 10px; min-width:52px; }
+  .llm-btn { display:flex; align-items:center; justify-content:center; gap:6px; padding:6px 8px; min-width:40px; border-radius:999px; }
   .llm-btn.active { border-color: rgba(106,255,191,.9); box-shadow: 0 0 0 1px rgba(106,255,191,.45) inset; }
-  .llm-logo { width:28px; height:28px; border-radius:8px; display:grid; place-items:center; font-size:11px; font-weight:700; }
+  .llm-logo { width:20px; height:20px; border-radius:999px; display:grid; place-items:center; font-size:9px; font-weight:700; }
   .llm-logo.gpt { background: linear-gradient(180deg, #1d9d7a, #0f6e57); color: #e8fff8; }
   .llm-logo.google { background: linear-gradient(180deg, #4285F4 0%, #34A853 55%, #FBBC05 80%, #EA4335 100%); color: white; font-size:14px; }
   .msg { color:#9fd6ff; }

@@ -93,8 +93,28 @@ function App() {
     return token ? { Authorization: `Bearer ${token}` } : {}
   }
 
+  async function fetchWithAuthRetry(url: string, init?: RequestInit) {
+    const doFetch = async () => {
+      const headers = {
+        ...(init?.headers || {}),
+        ...(await authHeaders()),
+      } as Record<string, string>
+      return fetch(url, { ...init, headers })
+    }
+
+    let res = await doFetch()
+
+    if (res.status === 401) {
+      const { data } = await supabase.auth.refreshSession()
+      if (data?.session) setSession(data.session)
+      res = await doFetch()
+    }
+
+    return res
+  }
+
   async function apiGet(path: string) {
-    const res = await fetch(`${apiBase}${path}`, { headers: { ...(await authHeaders()) } })
+    const res = await fetchWithAuthRetry(`${apiBase}${path}`)
     const data = await res.json().catch(() => ({}))
     if (!res.ok) throw new Error(data?.error || `Erro ${res.status}`)
     return data
@@ -102,9 +122,9 @@ function App() {
 
   async function apiSend(path: string, method: 'POST' | 'PUT', body?: unknown) {
     const hasBody = body !== undefined
-    const res = await fetch(`${apiBase}${path}`, {
+    const res = await fetchWithAuthRetry(`${apiBase}${path}`, {
       method,
-      headers: { ...(hasBody ? { 'Content-Type': 'application/json' } : {}), ...(await authHeaders()) },
+      headers: { ...(hasBody ? { 'Content-Type': 'application/json' } : {}) },
       body: hasBody ? JSON.stringify(body) : undefined,
     })
     const data = await res.json().catch(() => ({}))

@@ -116,26 +116,31 @@ function App() {
     window.location.href = `${apiBase}/auth/google?email=${encodeURIComponent(adminEmail)}&returnTo=${returnTo}`
   }
 
-  async function loadDriveFiles(type: 'base' | 'ref', silent = false) {
+  async function loadDriveFiles(type: 'base' | 'ref', silent = false): Promise<number> {
     const folderId = type === 'base' ? baseFolderId : refFolderId
-    if (!folderId) return
+    if (!folderId) {
+      if (!silent) setMsg(`Folder ID de ${type === 'base' ? 'base' : 'referência'} não configurado.`)
+      return 0
+    }
     try {
       const data = await apiGet(`/drive/files?folderId=${encodeURIComponent(folderId)}&email=${encodeURIComponent(adminEmail)}`)
-      const files = (data.files || []) as DriveFile[]
+      const files = ((data.files || []) as DriveFile[]).filter((f) => String(f.mimeType || '').startsWith('image/'))
       if (type === 'base') setBaseFiles(files)
       else {
         setRefFiles(files)
         if (!referenceImageId && files[0]?.id) setReferenceImageId(files[0].id)
       }
       if (!silent) setMsg(`Arquivos ${type === 'base' ? 'base' : 'referência'} carregados: ${files.length}`)
+      return files.length
     } catch (e: any) {
       const errorMsg = String(e?.message || e)
       if (errorMsg.toLowerCase().includes('tokens google nao encontrados')) {
         setMsg('Conectando Google Drive automaticamente...')
         connectDriveOAuthAuto()
-        return
+        return 0
       }
       if (!silent) setMsg(`Falha ao carregar Drive (${type}): ${errorMsg}`)
+      return 0
     }
   }
 
@@ -242,9 +247,11 @@ function App() {
     ;(async () => {
       const connected = await ensureDriveConnected()
       if (!connected) return
-      await Promise.all([loadDriveFiles('base', true), loadDriveFiles('ref', true)])
+      const [baseCount, refCount] = await Promise.all([loadDriveFiles('base', false), loadDriveFiles('ref', false)])
       await loadConfig()
-      setMsg('Imagens das pastas Base e Referência carregadas automaticamente.')
+      if (baseCount === 0 || refCount === 0) {
+        setMsg(`Conexão OK, mas sem imagens carregadas (Base: ${baseCount}, Referência: ${refCount}). Clique em Atualizar imagens para revalidar.`)
+      }
     })()
   }, [session])
 
@@ -329,7 +336,10 @@ function App() {
             </div>
           </section>
 
-          <button disabled={busy} onClick={createAndStartJob}>Iniciar processamento</button>
+          <div className="row" style={{ marginTop: 8 }}>
+            <button disabled={busy} onClick={async () => { setBusy(true); await Promise.all([loadDriveFiles('base', false), loadDriveFiles('ref', false)]); setBusy(false) }}>Atualizar imagens</button>
+            <button disabled={busy} onClick={createAndStartJob}>Iniciar processamento</button>
+          </div>
 
           {jobId && (
             <section className="card">

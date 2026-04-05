@@ -436,8 +436,22 @@ function App() {
                 <>
                   <p>Task #{generatedTask.position + 1} • attempts: {generatedTask.attempts}</p>
                   <div className="split">
-                    <div className="card inline"><b>Original</b><p>{generatedTask.base_image_id}</p></div>
-                    <div className="card inline"><b>Gerada (temp)</b><p>{generatedTask.output_temp_url?.slice(0, 120) || 'Sem output'}</p></div>
+                    <div className="card inline">
+                      <b>Original</b>
+                      <img
+                        src={`${apiBase}/drive/thumbnail?fileId=${encodeURIComponent(generatedTask.base_image_id)}&email=${encodeURIComponent(adminEmail)}`}
+                        alt="Original"
+                        className="approval-img"
+                      />
+                    </div>
+                    <div className="card inline">
+                      <b>Gerada (temp)</b>
+                      {generatedTask.output_temp_url?.startsWith('data:image') ? (
+                        <img src={generatedTask.output_temp_url} alt="Gerada" className="approval-img" />
+                      ) : (
+                        <p>{generatedTask.output_temp_url?.slice(0, 120) || 'Sem output'}</p>
+                      )}
+                    </div>
                   </div>
                   <div className="row">
                     <button disabled={busy} onClick={approveCurrent}>{actionLoading === 'approve' ? 'Aprovando...' : '✅ Aprovar'}</button>
@@ -481,6 +495,7 @@ style.innerHTML = `
   .thumb-card.selected { border-color: rgba(106,255,191,.9); box-shadow: 0 0 0 1px rgba(106,255,191,.4) inset; }
   .thumb-card input { align-self:flex-start; }
   .thumb-card img { width:100%; height:120px; object-fit:cover; border-radius:8px; background:#0a1018; }
+  .approval-img { width:100%; max-height:260px; object-fit:contain; border-radius:10px; margin-top:8px; background:#0a1018; }
   .thumb-badge { display:inline-block; font-size:10px; background:#113d2d; color:#9cffd5; border:1px solid #1d6d4f; border-radius:999px; padding:2px 8px; width:max-content; }
   .thumb-card span { font-size:12px; opacity:.9; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   input, select, textarea, button { border-radius:10px; border:1px solid rgba(106,255,191,.25); background:#0d1522; color:#eaf2ff; padding:10px; }

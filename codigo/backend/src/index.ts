@@ -5,6 +5,7 @@ import { google } from 'googleapis'
 import { createClient } from '@supabase/supabase-js'
 import { z } from 'zod'
 import { Queue } from 'bullmq'
+import { Readable } from 'node:stream'
 
 type TokenRow = {
   email: string
@@ -459,7 +460,7 @@ app.post('/tasks/:id/approve', async (request, reply) => {
         },
         media: {
           mimeType,
-          body: Buffer.from(bytes),
+          body: Readable.from(bytes),
         },
         fields: 'id',
         supportsAllDrives: true,

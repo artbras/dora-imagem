@@ -145,8 +145,19 @@ async function processNextImage(jobId: string) {
 
     const adapter = getModelAdapter(String(jobRow.model || 'gpt'), featureNanoBanana)
     const output = await adapter.generate({ baseImage, referenceImage, promptPositive, promptNegative })
+    const outputBytes = output.length
 
-    const tempPayload = `data:application/octet-stream;base64,${output.toString('base64')}`
+    const svg = `<svg xmlns='http://www.w3.org/2000/svg' width='1024' height='1024'>
+      <rect width='100%' height='100%' fill='#0b1220'/>
+      <rect x='24' y='24' width='976' height='976' rx='24' fill='#111a2b' stroke='#2a3d60'/>
+      <text x='64' y='120' fill='#9fd6ff' font-size='44' font-family='Arial'>Prévia gerada (placeholder)</text>
+      <text x='64' y='190' fill='#b8c7e6' font-size='28' font-family='Arial'>Modelo: ${String(jobRow.model || 'gpt')}</text>
+      <text x='64' y='240' fill='#b8c7e6' font-size='24' font-family='Arial'>Base bytes: ${baseImage.length}</text>
+      <text x='64' y='280' fill='#b8c7e6' font-size='24' font-family='Arial'>Ref bytes: ${referenceImage.length}</text>
+      <text x='64' y='320' fill='#b8c7e6' font-size='24' font-family='Arial'>Output bytes: ${outputBytes}</text>
+      <text x='64' y='370' fill='#9cffd5' font-size='22' font-family='Arial'>Ao integrar LLM real, este card será a imagem final.</text>
+    </svg>`
+    const tempPayload = `data:image/svg+xml;base64,${Buffer.from(svg, 'utf8').toString('base64')}`
 
     const { error: updateTaskError } = await supabase
       .from('image_tasks')

@@ -431,6 +431,57 @@ app.post('/tasks/:id/reject', async (request, reply) => {
   return reply.send({ ok: true, message: 'task rejeitada e re-enfileirada', attempts: Number(task.attempts || 0) + 1 })
 })
 
+app.get('/config', async (request, reply) => {
+  const auth = await authenticateRequest(request, reply)
+  if (!auth) return
+
+  const { data, error } = await supabase
+    .from('app_config')
+    .select('id,prompt_positive,prompt_negative,default_model,feature_nano_banana,created_at')
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+
+  if (error) return reply.code(500).send({ ok: false, error: error.message })
+
+  return reply.send({
+    ok: true,
+    config: data || {
+      prompt_positive: '',
+      prompt_negative: '',
+      default_model: 'gpt',
+      feature_nano_banana: false,
+    },
+  })
+})
+
+app.put('/config', async (request, reply) => {
+  const auth = await authenticateRequest(request, reply)
+  if (!auth) return
+
+  const body = z.object({
+    llm: z.enum(['gpt', 'nano_banana']),
+    promptPositive: z.string().default(''),
+    promptNegative: z.string().default(''),
+  }).parse(request.body)
+
+  const payload = {
+    default_model: body.llm,
+    feature_nano_banana: body.llm === 'nano_banana',
+    prompt_positive: body.promptPositive,
+    prompt_negative: body.promptNegative,
+  }
+
+  const { data, error } = await supabase
+    .from('app_config')
+    .insert(payload)
+    .select('id,prompt_positive,prompt_negative,default_model,feature_nano_banana,created_at')
+    .single()
+
+  if (error) return reply.code(500).send({ ok: false, error: error.message })
+  return reply.send({ ok: true, config: data })
+})
+
 const port = Number(env.PORT || 8787)
 app.listen({ port, host: '0.0.0.0' }).catch((err) => {
   app.log.error(err)

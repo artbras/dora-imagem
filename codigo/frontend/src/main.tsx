@@ -366,10 +366,28 @@ function App() {
               </div>
 
               <label style={{ marginTop: 8 }}>Modelo da geração</label>
-              <select value={model} onChange={(e) => setModel(e.target.value as 'gpt' | 'nano_banana')}>
-                <option value="gpt">gpt</option>
-                <option value="nano_banana">nano_banana</option>
-              </select>
+              <div className="llm-switch" role="radiogroup" aria-label="Modelo da geração">
+                <button
+                  type="button"
+                  className={`llm-btn ${model === 'gpt' ? 'active' : ''}`}
+                  onClick={() => setModel('gpt')}
+                  aria-pressed={model === 'gpt'}
+                  title="GPT"
+                >
+                  <span className="llm-logo gpt">GPT</span>
+                  <span>GPT</span>
+                </button>
+                <button
+                  type="button"
+                  className={`llm-btn ${model === 'nano_banana' ? 'active' : ''}`}
+                  onClick={() => setModel('nano_banana')}
+                  aria-pressed={model === 'nano_banana'}
+                  title="Nano Banana (Google)"
+                >
+                  <span className="llm-logo google">G</span>
+                  <span>Google / Nano Banana</span>
+                </button>
+              </div>
             </div>
           </section>
 
@@ -438,6 +456,12 @@ style.innerHTML = `
   input, select, textarea, button { border-radius:10px; border:1px solid rgba(106,255,191,.25); background:#0d1522; color:#eaf2ff; padding:10px; }
   button { background: linear-gradient(180deg, #23334d, #18263d); cursor:pointer; }
   button:hover { border-color: rgba(106,255,191,.55); }
+  .llm-switch { display:grid; grid-template-columns: 1fr 1fr; gap:8px; }
+  .llm-btn { display:flex; align-items:center; justify-content:flex-start; gap:8px; padding:10px 12px; }
+  .llm-btn.active { border-color: rgba(106,255,191,.9); box-shadow: 0 0 0 1px rgba(106,255,191,.45) inset; }
+  .llm-logo { width:28px; height:28px; border-radius:8px; display:grid; place-items:center; font-size:11px; font-weight:700; }
+  .llm-logo.gpt { background: linear-gradient(180deg, #1d9d7a, #0f6e57); color: #e8fff8; }
+  .llm-logo.google { background: linear-gradient(180deg, #4285F4 0%, #34A853 55%, #FBBC05 80%, #EA4335 100%); color: white; font-size:14px; }
   .msg { color:#9fd6ff; }
 `
 document.head.appendChild(style)

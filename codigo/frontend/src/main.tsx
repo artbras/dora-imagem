@@ -12,13 +12,14 @@ type JobTask = {
   position: number
 }
 
-const apiBase = (import.meta.env.VITE_API_BASE_URL as string) || 'http://localhost:8787'
-const normalizeEmail = (v?: string | null) => String(v || '').trim().toLowerCase()
+const clean = (v?: string | null) => String(v || '').trim()
+const apiBase = clean((import.meta.env.VITE_API_BASE_URL as string) || '') || 'http://localhost:8787'
+const normalizeEmail = (v?: string | null) => clean(v).toLowerCase()
 const adminEmail = normalizeEmail((import.meta.env.VITE_ADMIN_EMAIL as string) || 'am.agente.ia@gmail.com')
-const baseFolderId = (import.meta.env.VITE_GOOGLE_DRIVE_BASE_FOLDER_ID as string) || ''
-const refFolderId = (import.meta.env.VITE_GOOGLE_DRIVE_REFERENCE_FOLDER_ID as string) || ''
-const supabaseUrl = (import.meta.env.VITE_SUPABASE_URL as string) || ''
-const supabaseAnonKey = (import.meta.env.VITE_SUPABASE_ANON_KEY as string) || ''
+const baseFolderId = clean((import.meta.env.VITE_GOOGLE_DRIVE_BASE_FOLDER_ID as string) || '')
+const refFolderId = clean((import.meta.env.VITE_GOOGLE_DRIVE_REFERENCE_FOLDER_ID as string) || '')
+const supabaseUrl = clean((import.meta.env.VITE_SUPABASE_URL as string) || '')
+const supabaseAnonKey = clean((import.meta.env.VITE_SUPABASE_ANON_KEY as string) || '')
 
 const supabase = createClient(supabaseUrl, supabaseAnonKey)
 

@@ -11,6 +11,7 @@ type TokenRow = {
   access_token: string | null
   refresh_token: string
   expiry_date: string | null
+  scope?: string | null
 }
 
 type JobRow = {
@@ -70,8 +71,10 @@ function getAuthUrl(state: string) {
     prompt: 'consent',
     include_granted_scopes: false,
     scope: [
-      'https://www.googleapis.com/auth/drive.file',
-      'https://www.googleapis.com/auth/drive.readonly',
+      'openid',
+      'email',
+      'profile',
+      'https://www.googleapis.com/auth/drive',
     ],
     state,
   })
@@ -116,7 +119,7 @@ async function enqueueJobProcessing(jobId: string) {
 async function loadTokenByEmail(email: string): Promise<TokenRow | null> {
   const { data, error } = await supabase
     .from('user_google_tokens')
-    .select('email,access_token,refresh_token,expiry_date')
+    .select('email,access_token,refresh_token,expiry_date,scope')
     .eq('email', email)
     .maybeSingle()
 
@@ -202,6 +205,18 @@ app.get('/auth/callback', async (request, reply) => {
   }
 
   return reply.send({ ok: true, email, message: 'Google OAuth conectado com sucesso' })
+})
+
+app.get('/auth/drive-status', async (request, reply) => {
+  const auth = await authenticateRequest(request, reply)
+  if (!auth) return
+
+  const q = z.object({ email: z.string().email().optional() }).parse(request.query)
+  const email = resolveUserEmail(q.email || auth.email)
+  if (!email) return reply.code(400).send({ ok: false, error: 'email obrigatorio' })
+
+  const tokenRow = await loadTokenByEmail(email)
+  return reply.send({ ok: true, connected: Boolean(tokenRow?.refresh_token), scope: tokenRow ? (tokenRow as any).scope || null : null })
 })
 
 app.get('/drive/files', async (request, reply) => {

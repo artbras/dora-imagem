@@ -221,11 +221,31 @@ function App() {
     } finally { setBusy(false) }
   }
 
+  async function ensureDriveConnected() {
+    try {
+      const status = await apiGet(`/auth/drive-status?email=${encodeURIComponent(adminEmail)}`)
+      if (!status?.connected) {
+        setMsg('Conectando Google Drive automaticamente...')
+        connectDriveOAuthAuto()
+        return false
+      }
+      return true
+    } catch {
+      setMsg('Conectando Google Drive automaticamente...')
+      connectDriveOAuthAuto()
+      return false
+    }
+  }
+
   useEffect(() => {
     if (!session) return
-    void Promise.all([loadDriveFiles('base', true), loadDriveFiles('ref', true)])
-    void loadConfig()
-    setMsg('Imagens das pastas Base e Referência carregadas automaticamente.')
+    ;(async () => {
+      const connected = await ensureDriveConnected()
+      if (!connected) return
+      await Promise.all([loadDriveFiles('base', true), loadDriveFiles('ref', true)])
+      await loadConfig()
+      setMsg('Imagens das pastas Base e Referência carregadas automaticamente.')
+    })()
   }, [session])
 
   useEffect(() => {

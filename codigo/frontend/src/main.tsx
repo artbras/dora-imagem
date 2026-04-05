@@ -99,10 +99,11 @@ function App() {
   }
 
   async function apiSend(path: string, method: 'POST' | 'PUT', body?: unknown) {
+    const hasBody = body !== undefined
     const res = await fetch(`${apiBase}${path}`, {
       method,
-      headers: { 'Content-Type': 'application/json', ...(await authHeaders()) },
-      body: body ? JSON.stringify(body) : undefined,
+      headers: { ...(hasBody ? { 'Content-Type': 'application/json' } : {}), ...(await authHeaders()) },
+      body: hasBody ? JSON.stringify(body) : undefined,
     })
     const data = await res.json().catch(() => ({}))
     if (!res.ok) throw new Error(data?.error || `Erro ${res.status}`)

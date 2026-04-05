@@ -311,24 +311,46 @@ function App() {
           <section className="split">
             <div className="card">
               <h3>Imagens Base ({baseFiles.length})</h3>
-              <div className="list">
+              <div className="thumb-grid">
                 {baseFiles.map((f) => {
                   const checked = selectedBaseIds.includes(f.id)
+                  const thumb = `https://drive.google.com/thumbnail?id=${f.id}&sz=w500`
                   return (
-                    <label key={f.id} className="item">
-                      <input type="checkbox" checked={checked} onChange={() => setSelectedBaseIds((prev) => prev.includes(f.id) ? prev.filter((x) => x !== f.id) : [...prev, f.id])} />
-                      <span>{f.name}</span>
+                    <label key={f.id} className={`thumb-card ${checked ? 'selected' : ''}`}>
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        onChange={() => setSelectedBaseIds((prev) => prev.includes(f.id) ? prev.filter((x) => x !== f.id) : [...prev, f.id])}
+                      />
+                      <img src={thumb} alt={f.name} loading="lazy" />
+                      <span title={f.name}>{f.name}</span>
                     </label>
                   )
                 })}
               </div>
             </div>
+
             <div className="card">
               <h3>Imagem de Referência ({refFiles.length})</h3>
-              <select value={referenceImageId} onChange={(e) => setReferenceImageId(e.target.value)}>
-                <option value="">Selecione</option>
-                {refFiles.map((f) => <option key={f.id} value={f.id}>{f.name}</option>)}
-              </select>
+              <div className="thumb-grid single">
+                {refFiles.map((f) => {
+                  const checked = referenceImageId === f.id
+                  const thumb = `https://drive.google.com/thumbnail?id=${f.id}&sz=w500`
+                  return (
+                    <label key={f.id} className={`thumb-card ${checked ? 'selected' : ''}`}>
+                      <input
+                        type="radio"
+                        name="reference-image"
+                        checked={checked}
+                        onChange={() => setReferenceImageId(f.id)}
+                      />
+                      <img src={thumb} alt={f.name} loading="lazy" />
+                      <span title={f.name}>{f.name}</span>
+                    </label>
+                  )
+                })}
+              </div>
+
               <label style={{ marginTop: 8 }}>Modelo da geração</label>
               <select value={model} onChange={(e) => setModel(e.target.value as 'gpt' | 'nano_banana')}>
                 <option value="gpt">gpt</option>
@@ -392,6 +414,13 @@ style.innerHTML = `
   .row { display:flex; gap:8px; flex-wrap:wrap; }
   .list { max-height:240px; overflow:auto; display:grid; gap:6px; }
   .item { display:flex; gap:8px; align-items:center; }
+  .thumb-grid { display:grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap:10px; max-height: 420px; overflow:auto; }
+  .thumb-grid.single { grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); }
+  .thumb-card { display:flex; flex-direction:column; gap:6px; border:1px solid rgba(106,255,191,.25); border-radius:12px; padding:8px; background:#0d1522; cursor:pointer; }
+  .thumb-card.selected { border-color: rgba(106,255,191,.9); box-shadow: 0 0 0 1px rgba(106,255,191,.4) inset; }
+  .thumb-card input { align-self:flex-start; }
+  .thumb-card img { width:100%; height:120px; object-fit:cover; border-radius:8px; background:#0a1018; }
+  .thumb-card span { font-size:12px; opacity:.9; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   input, select, textarea, button { border-radius:10px; border:1px solid rgba(106,255,191,.25); background:#0d1522; color:#eaf2ff; padding:10px; }
   button { background: linear-gradient(180deg, #23334d, #18263d); cursor:pointer; }
   button:hover { border-color: rgba(106,255,191,.55); }

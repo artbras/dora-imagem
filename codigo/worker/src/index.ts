@@ -28,7 +28,7 @@ class GPTAdapter implements ImageProcessor {
   }
 
   async generate(params: ProcessInput): Promise<Buffer> {
-    const model = process.env.OPENAI_IMAGE_MODEL || 'gpt-image-1'
+    const model = process.env.OPENAI_IMAGE_MODEL || 'gpt-image-1.5'
     const baseExt = params.baseMimeType === 'image/jpeg' ? 'jpg' : params.baseMimeType === 'image/webp' ? 'webp' : 'png'
     const refExt = params.referenceMimeType === 'image/jpeg' ? 'jpg' : params.referenceMimeType === 'image/webp' ? 'webp' : 'png'
 

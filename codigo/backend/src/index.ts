@@ -220,16 +220,19 @@ app.get('/auth/drive-status', async (request, reply) => {
 })
 
 app.get('/drive/thumbnail', async (request, reply) => {
-  const auth = await authenticateRequest(request, reply)
-  if (!auth) return
-
+  // endpoint de imagem usado por <img>, então não pode depender de Authorization header
   const q = z.object({
     fileId: z.string().min(1),
     email: z.string().email().optional(),
   }).parse(request.query)
 
-  const email = resolveUserEmail(q.email || auth.email)
+  const email = resolveUserEmail(q.email)
   if (!email) return reply.code(400).send({ ok: false, error: 'email obrigatorio' })
+
+  const adminEmail = normalizeEmail(env.ADMIN_EMAIL)
+  if (adminEmail && email !== adminEmail) {
+    return reply.code(403).send({ ok: false, error: 'forbidden: admin access required' })
+  }
 
   const tokenRow = await loadTokenByEmail(email)
   if (!tokenRow) return reply.code(404).send({ ok: false, error: 'tokens Google nao encontrados para este email' })

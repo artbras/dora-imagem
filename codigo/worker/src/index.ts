@@ -237,24 +237,8 @@ async function processNextImage(jobId: string) {
       promptNegative,
     })
 
-    let tempPayload = ''
-    if (currentModel === 'gpt') {
-      const mime = detectMimeFromBytes(output)
-      tempPayload = `data:${mime};base64,${output.toString('base64')}`
-    } else {
-      const outputBytes = output.length
-      const svg = `<svg xmlns='http://www.w3.org/2000/svg' width='1024' height='1024'>
-        <rect width='100%' height='100%' fill='#0b1220'/>
-        <rect x='24' y='24' width='976' height='976' rx='24' fill='#111a2b' stroke='#2a3d60'/>
-        <text x='64' y='120' fill='#9fd6ff' font-size='44' font-family='Arial'>Prévia gerada (placeholder)</text>
-        <text x='64' y='190' fill='#b8c7e6' font-size='28' font-family='Arial'>Modelo: ${currentModel}</text>
-        <text x='64' y='240' fill='#b8c7e6' font-size='24' font-family='Arial'>Base bytes: ${baseImage.length}</text>
-        <text x='64' y='280' fill='#b8c7e6' font-size='24' font-family='Arial'>Ref bytes: ${referenceImage.length}</text>
-        <text x='64' y='320' fill='#b8c7e6' font-size='24' font-family='Arial'>Output bytes: ${outputBytes}</text>
-        <text x='64' y='370' fill='#9cffd5' font-size='22' font-family='Arial'>Ao integrar Nano Banana real, este card será a imagem final.</text>
-      </svg>`
-      tempPayload = `data:image/svg+xml;base64,${Buffer.from(svg, 'utf8').toString('base64')}`
-    }
+    const mime = detectMimeFromBytes(output)
+    const tempPayload = `data:${mime};base64,${output.toString('base64')}`
 
     const { error: updateTaskError } = await supabase
       .from('image_tasks')

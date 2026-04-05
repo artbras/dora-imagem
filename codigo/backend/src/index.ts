@@ -513,22 +513,36 @@ app.post('/tasks/:id/reject', async (request, reply) => {
   return reply.send({ ok: true, message: 'task rejeitada e re-enfileirada', attempts: Number(task.attempts || 0) + 1 })
 })
 
+const CONFIG_SINGLETON_ID = '00000000-0000-0000-0000-000000000001'
+
 app.get('/config', async (request, reply) => {
   const auth = await authenticateRequest(request, reply)
   if (!auth) return
 
-  const { data, error } = await supabase
+  let { data, error } = await supabase
     .from('app_config')
     .select('id,prompt_positive,prompt_negative,default_model,feature_nano_banana,created_at')
-    .order('created_at', { ascending: false })
-    .limit(1)
+    .eq('id', CONFIG_SINGLETON_ID)
     .maybeSingle()
 
   if (error) return reply.code(500).send({ ok: false, error: error.message })
 
+  // fallback para legado (linhas antigas)
+  if (!data) {
+    const fallback = await supabase
+      .from('app_config')
+      .select('id,prompt_positive,prompt_negative,default_model,feature_nano_banana,created_at')
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+    if (fallback.error) return reply.code(500).send({ ok: false, error: fallback.error.message })
+    data = fallback.data
+  }
+
   return reply.send({
     ok: true,
     config: data || {
+      id: CONFIG_SINGLETON_ID,
       prompt_positive: '',
       prompt_negative: '',
       default_model: 'gpt',
@@ -548,6 +562,7 @@ app.put('/config', async (request, reply) => {
   }).parse(request.body)
 
   const payload = {
+    id: CONFIG_SINGLETON_ID,
     default_model: body.llm,
     feature_nano_banana: body.llm === 'nano_banana',
     prompt_positive: body.promptPositive,
@@ -556,7 +571,7 @@ app.put('/config', async (request, reply) => {
 
   const { data, error } = await supabase
     .from('app_config')
-    .insert(payload)
+    .upsert(payload, { onConflict: 'id' })
     .select('id,prompt_positive,prompt_negative,default_model,feature_nano_banana,created_at')
     .single()
 

@@ -246,15 +246,20 @@ function App() {
   useEffect(() => {
     if (!session) return
     ;(async () => {
+      await loadConfig()
       const connected = await ensureDriveConnected()
       if (!connected) return
       const [baseCount, refCount] = await Promise.all([loadDriveFiles('base', false), loadDriveFiles('ref', false)])
-      await loadConfig()
       if (baseCount === 0 || refCount === 0) {
         setMsg(`Conexão OK, mas sem imagens carregadas (Base: ${baseCount}, Referência: ${refCount}). Clique em Atualizar imagens para revalidar.`)
       }
     })()
   }, [session])
+
+  useEffect(() => {
+    if (!session) return
+    if (route === '/config') void loadConfig()
+  }, [route, session])
 
   useEffect(() => {
     if (!jobId) return

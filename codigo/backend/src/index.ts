@@ -219,6 +219,64 @@ app.get('/auth/drive-status', async (request, reply) => {
   return reply.send({ ok: true, connected: Boolean(tokenRow?.refresh_token), scope: tokenRow ? (tokenRow as any).scope || null : null })
 })
 
+app.get('/drive/thumbnail', async (request, reply) => {
+  const auth = await authenticateRequest(request, reply)
+  if (!auth) return
+
+  const q = z.object({
+    fileId: z.string().min(1),
+    email: z.string().email().optional(),
+  }).parse(request.query)
+
+  const email = resolveUserEmail(q.email || auth.email)
+  if (!email) return reply.code(400).send({ ok: false, error: 'email obrigatorio' })
+
+  const tokenRow = await loadTokenByEmail(email)
+  if (!tokenRow) return reply.code(404).send({ ok: false, error: 'tokens Google nao encontrados para este email' })
+
+  oauth2Client.setCredentials({
+    access_token: tokenRow.access_token ?? undefined,
+    refresh_token: tokenRow.refresh_token,
+    expiry_date: tokenRow.expiry_date ? new Date(tokenRow.expiry_date).getTime() : undefined,
+  })
+
+  const drive = google.drive({ version: 'v3', auth: oauth2Client })
+
+  try {
+    const fileMeta = await drive.files.get({
+      fileId: q.fileId,
+      fields: 'id,name,mimeType,thumbnailLink',
+      supportsAllDrives: true,
+    })
+
+    const mimeType = String(fileMeta.data.mimeType || '')
+
+    if (mimeType.startsWith('image/')) {
+      const media = await drive.files.get(
+        { fileId: q.fileId, alt: 'media', supportsAllDrives: true },
+        { responseType: 'arraybuffer' },
+      )
+      const buf = Buffer.from(media.data as ArrayBuffer)
+      reply.header('content-type', mimeType || 'image/jpeg')
+      reply.header('cache-control', 'private, max-age=300')
+      return reply.send(buf)
+    }
+
+    const thumbLink = fileMeta.data.thumbnailLink
+    if (thumbLink) {
+      const r = await fetch(thumbLink)
+      const ab = await r.arrayBuffer()
+      reply.header('content-type', r.headers.get('content-type') || 'image/jpeg')
+      reply.header('cache-control', 'private, max-age=300')
+      return reply.send(Buffer.from(ab))
+    }
+
+    return reply.code(404).send({ ok: false, error: 'thumbnail indisponivel' })
+  } catch (err: any) {
+    return reply.code(500).send({ ok: false, error: err?.message || 'erro ao gerar thumbnail' })
+  }
+})
+
 app.get('/drive/files', async (request, reply) => {
   const auth = await authenticateRequest(request, reply)
   if (!auth) return

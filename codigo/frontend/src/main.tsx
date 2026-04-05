@@ -314,7 +314,7 @@ function App() {
               <div className="thumb-grid">
                 {baseFiles.map((f) => {
                   const checked = selectedBaseIds.includes(f.id)
-                  const thumb = `https://drive.google.com/thumbnail?id=${f.id}&sz=w500`
+                  const thumb = `${apiBase}/drive/thumbnail?fileId=${encodeURIComponent(f.id)}&email=${encodeURIComponent(adminEmail)}`
                   return (
                     <label key={f.id} className={`thumb-card ${checked ? 'selected' : ''}`}>
                       <input
@@ -335,7 +335,7 @@ function App() {
               <div className="thumb-grid single">
                 {refFiles.map((f) => {
                   const checked = referenceImageId === f.id
-                  const thumb = `https://drive.google.com/thumbnail?id=${f.id}&sz=w500`
+                  const thumb = `${apiBase}/drive/thumbnail?fileId=${encodeURIComponent(f.id)}&email=${encodeURIComponent(adminEmail)}`
                   return (
                     <label key={f.id} className={`thumb-card ${checked ? 'selected' : ''}`}>
                       <input
@@ -414,8 +414,8 @@ style.innerHTML = `
   .row { display:flex; gap:8px; flex-wrap:wrap; }
   .list { max-height:240px; overflow:auto; display:grid; gap:6px; }
   .item { display:flex; gap:8px; align-items:center; }
-  .thumb-grid { display:grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap:10px; max-height: 420px; overflow:auto; }
-  .thumb-grid.single { grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); }
+  .thumb-grid { display:grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap:10px; max-height: 420px; overflow:auto; }
+  .thumb-grid.single { grid-template-columns: repeat(4, minmax(0, 1fr)); }
   .thumb-card { display:flex; flex-direction:column; gap:6px; border:1px solid rgba(106,255,191,.25); border-radius:12px; padding:8px; background:#0d1522; cursor:pointer; }
   .thumb-card.selected { border-color: rgba(106,255,191,.9); box-shadow: 0 0 0 1px rgba(106,255,191,.4) inset; }
   .thumb-card input { align-self:flex-start; }

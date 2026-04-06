@@ -324,7 +324,7 @@ function App() {
       <main className="page auth">
         <section className="card auth-card">
           <img src="/logo-login.png" alt="Dora" className="logo-auth" />
-          <p>Login obrigatório com Google ({adminEmail})</p>
+          <p>Liberado somente para —» {adminEmail}</p>
           <button className="google-login-btn" onClick={signInWithGoogle}>
             <img src="/logo-google.jpg" alt="Google" className="google-btn-logo" />
             <span>Entrar com Google</span>

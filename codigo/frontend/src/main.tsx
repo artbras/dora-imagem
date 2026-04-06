@@ -351,11 +351,6 @@ function App() {
         <section className="card">
           <h3>Configuração</h3>
           <div className="grid">
-            <label>LLM</label>
-            <select value={configLlm} onChange={(e) => setConfigLlm(e.target.value as 'gpt' | 'nano_banana')}>
-              <option value="gpt">gpt</option>
-              <option value="nano_banana">nano_banana</option>
-            </select>
             <label>Prompt Positivo</label>
             <textarea rows={5} value={promptPositive} onChange={(e) => setPromptPositive(e.target.value)} />
             <label>Prompt Negativo</label>

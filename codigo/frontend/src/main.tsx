@@ -325,8 +325,10 @@ function App() {
         <section className="card auth-card">
           <img src="/logo-login.png" alt="Dora" className="logo-auth" />
           <p>Login obrigatório com Google ({adminEmail})</p>
-          <button onClick={signInWithGoogle}>Entrar com Google</button>
-          {msg && <p className="msg">{msg}</p>}
+          <button className="google-login-btn" onClick={signInWithGoogle}>
+            <img src="/logo-google.jpg" alt="Google" className="google-btn-logo" />
+            <span>Entrar com Google</span>
+          </button>
         </section>
       </main>
     )
@@ -520,6 +522,8 @@ style.innerHTML = `
   .auth { display:grid; place-items:center; min-height:100vh; }
   .auth-card { max-width:420px; width:100%; text-align:center; }
   .logo-auth { max-width: 280px; margin-bottom: 10px; }
+  .google-login-btn { display:inline-flex; align-items:center; gap:8px; }
+  .google-btn-logo { width:18px; height:18px; object-fit:contain; border-radius:3px; }
   .topbar { display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; }
   .brand { display:flex; align-items:center; gap:16px; }
   .logo-head { height:40px; width:auto; }

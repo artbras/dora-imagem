@@ -474,7 +474,7 @@ function App() {
                     </div>
                     <div className="card inline">
                       <div className="row" style={{ justifyContent: 'space-between', alignItems: 'center' }}>
-                        <b>Gerada (temp)</b>
+                        <b>Gerada</b>
                         {generatedTask.output_temp_url?.startsWith('data:image') && (
                           <button type="button" onClick={() => { setZoomLevel(1); setZoomOpen(true) }} title="Ampliar">🔎 Ampliar</button>
                         )}

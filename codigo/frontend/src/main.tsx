@@ -487,8 +487,9 @@ function App() {
                     </div>
                   </div>
                   <div className="row">
-                    <button disabled={busy} onClick={approveCurrent}>{actionLoading === 'approve' ? 'Aprovando...' : '✅ Aprovar'}</button>
+                    <button disabled={busy} onClick={approveCurrent}>{actionLoading === 'approve' ? 'Aprovando...' : '✅ Salvar'}</button>
                     <button disabled={busy} onClick={rejectCurrent}>{actionLoading === 'reject' ? 'Recusando...' : '❌ Recusar'}</button>
+                    <button type="button" disabled={busy} onClick={() => window.location.reload()}>Cancelar</button>
                   </div>
                 </>
               )}

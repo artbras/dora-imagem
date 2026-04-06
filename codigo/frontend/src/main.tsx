@@ -515,7 +515,7 @@ function App() {
 const style = document.createElement('style')
 style.innerHTML = `
   :root { color-scheme: dark; }
-  body { margin:0; font-family: Inter, system-ui, sans-serif; background: radial-gradient(circle at 10% 10%, #1b2436 0%, #0b1018 45%, #070b12 100%); color:#eaf2ff; }
+  body { margin:0; font-family: Inter, system-ui, sans-serif; background: linear-gradient(rgba(8,10,16,.86), rgba(8,10,16,.86)), url('/bg-adoro-mimo.jpg') center/cover fixed no-repeat; color:#eaf2ff; }
   .page { max-width: 1100px; margin: 0 auto; padding: 20px; }
   .auth { display:grid; place-items:center; min-height:100vh; }
   .auth-card { max-width:420px; width:100%; text-align:center; }

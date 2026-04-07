@@ -286,23 +286,35 @@ function App() {
     }
   }
 
+  async function syncOperationImages() {
+    await loadConfig()
+    const connected = await ensureDriveConnected()
+    if (!connected) return
+
+    let [baseCount, refCount] = await Promise.all([loadDriveFiles('base', false), loadDriveFiles('ref', false)])
+    if (jobId) await loadJob(jobId)
+
+    if (baseCount === 0 || refCount === 0) {
+      await new Promise((r) => setTimeout(r, 1200))
+      const retry = await Promise.all([loadDriveFiles('base', true), loadDriveFiles('ref', true)])
+      baseCount = Math.max(baseCount, retry[0])
+      refCount = Math.max(refCount, retry[1])
+    }
+
+    if (baseCount === 0 || refCount === 0) {
+      setMsg(`Conexão OK, mas sem imagens carregadas (Base: ${baseCount}, Referência: ${refCount}). Clique em Atualizar imagens para revalidar.`)
+    }
+  }
+
   useEffect(() => {
     if (!session) return
-    ;(async () => {
-      await loadConfig()
-      const connected = await ensureDriveConnected()
-      if (!connected) return
-      const [baseCount, refCount] = await Promise.all([loadDriveFiles('base', false), loadDriveFiles('ref', false)])
-      if (jobId) await loadJob(jobId)
-      if (baseCount === 0 || refCount === 0) {
-        setMsg(`Conexão OK, mas sem imagens carregadas (Base: ${baseCount}, Referência: ${refCount}). Clique em Atualizar imagens para revalidar.`)
-      }
-    })()
+    void syncOperationImages()
   }, [session])
 
   useEffect(() => {
     if (!session) return
     if (route === '/config') void loadConfig()
+    if (route === '/') void syncOperationImages()
   }, [route, session])
 
   // Auto-refresh leve enquanto job estiver em processamento para avançar automaticamente para aprovação

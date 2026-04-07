@@ -6,6 +6,7 @@ import { createClient } from '@supabase/supabase-js'
 import { z } from 'zod'
 import { Queue } from 'bullmq'
 import { Readable } from 'node:stream'
+import sharp from 'sharp'
 
 type TokenRow = {
   email: string
@@ -87,6 +88,16 @@ function normalizeEmail(email?: string) {
 
 function resolveUserEmail(rawEmail?: string) {
   return normalizeEmail(rawEmail || env.ADMIN_EMAIL)
+}
+
+function sanitizeFileBaseName(name?: string) {
+  return String(name || 'arquivo')
+    .replace(/\.[^/.]+$/, '')
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-zA-Z0-9-_]+/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '')
+    .toLowerCase() || 'arquivo'
 }
 
 async function authenticateRequest(request: any, reply: any): Promise<AuthUser | null> {
@@ -419,7 +430,7 @@ app.post('/tasks/:id/approve', async (request, reply) => {
 
   const { data: task, error: taskError } = await supabase
     .from('image_tasks')
-    .select('id,job_id,position,output_temp_url')
+    .select('id,job_id,position,base_image_id,output_temp_url')
     .eq('id', params.id)
     .maybeSingle()
   if (taskError) return reply.code(500).send({ ok: false, error: taskError.message })
@@ -427,7 +438,7 @@ app.post('/tasks/:id/approve', async (request, reply) => {
 
   const { data: jobRow, error: jobError } = await supabase
     .from('jobs')
-    .select('id,user_email')
+    .select('id,user_email,reference_image_id')
     .eq('id', task.job_id)
     .maybeSingle()
   if (jobError) return reply.code(500).send({ ok: false, error: jobError.message })
@@ -448,21 +459,39 @@ app.post('/tasks/:id/approve', async (request, reply) => {
 
     const match = tempUrl.match(/^data:(.*?);base64,(.*)$/)
     if (match) {
-      const mimeType = match[1] || 'application/octet-stream'
       const bytes = Buffer.from(match[2], 'base64')
       const drive = google.drive({ version: 'v3', auth: oauth2Client })
-      const fileName = `job-${task.job_id}-task-${task.position}-${Date.now()}.bin`
+
+      const [baseMeta, refMeta] = await Promise.all([
+        drive.files.get({
+          fileId: String((task as any).base_image_id || ''),
+          fields: 'name',
+          supportsAllDrives: true,
+        }).catch(() => ({ data: { name: `base-${task.position}` } as any })),
+        drive.files.get({
+          fileId: String((jobRow as any).reference_image_id || ''),
+          fields: 'name',
+          supportsAllDrives: true,
+        }).catch(() => ({ data: { name: 'referencia' } as any })),
+      ])
+
+      const baseName = sanitizeFileBaseName((baseMeta as any)?.data?.name)
+      const refName = sanitizeFileBaseName((refMeta as any)?.data?.name)
+      const fileName = `${baseName}+${refName}.webp`
+
+      const webpBytes = await sharp(bytes).webp({ quality: 92 }).toBuffer()
+
       const uploadRes = await drive.files.create({
         requestBody: {
           name: fileName,
           parents: [env.GOOGLE_DRIVE_RESULTS_FOLDER_ID],
-          mimeType,
+          mimeType: 'image/webp',
         },
         media: {
-          mimeType,
-          body: Readable.from(bytes),
+          mimeType: 'image/webp',
+          body: Readable.from(webpBytes),
         },
-        fields: 'id',
+        fields: 'id,name',
         supportsAllDrives: true,
       })
 

@@ -265,17 +265,6 @@ function App() {
     } finally { setBusy(false); setActionLoading(null) }
   }
 
-  async function generateNext() {
-    if (!jobId) return
-    setBusy(true)
-    setActionLoading('next')
-    try {
-      await apiSend(`/jobs/${jobId}/start`, 'POST')
-      await loadJob()
-      setMsg('Próxima geração enfileirada.')
-    } finally { setBusy(false); setActionLoading(null) }
-  }
-
   async function ensureDriveConnected() {
     try {
       const status = await apiGet(`/auth/drive-status?email=${encodeURIComponent(adminEmail)}`)
@@ -437,11 +426,6 @@ function App() {
               {actionLoading === 'sync' ? 'Sincronizando...' : 'Atualizar imagens'}
             </button>
             <button disabled={busy} onClick={createAndStartJob}>Iniciar processamento</button>
-            {jobId && (
-              <button disabled={busy} onClick={generateNext}>
-                {actionLoading === 'next' ? 'Enfileirando...' : 'Gerar próxima'}
-              </button>
-            )}
           </div>
 
           {jobId && (

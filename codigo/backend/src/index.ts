@@ -443,11 +443,16 @@ app.post('/tasks/:id/approve', async (request, reply) => {
 
   const { data: task, error: taskError } = await supabase
     .from('image_tasks')
-    .select('id,job_id,position,base_image_id,output_temp_url')
+    .select('id,job_id,position,base_image_id,status,output_temp_url,output_image_id')
     .eq('id', params.id)
     .maybeSingle()
   if (taskError) return reply.code(500).send({ ok: false, error: taskError.message })
   if (!task) return reply.code(404).send({ ok: false, error: 'task nao encontrada' })
+
+  if (task.status === 'approved' && task.output_image_id) {
+    await updateJobProgress(task.job_id)
+    return reply.send({ ok: true, message: 'task já aprovada (idempotente)', outputImageId: task.output_image_id })
+  }
 
   const { data: jobRow, error: jobError } = await supabase
     .from('jobs')

@@ -358,7 +358,7 @@ function App() {
           return
         }
 
-        if (generatedTask) {
+        if (generatedTask && generatedTask.status === 'generated' && actionLoading !== 'approve') {
           setActionLoading('approve')
           await apiSend(`/tasks/${generatedTask.id}/approve`, 'POST')
           await loadJob(jobId)

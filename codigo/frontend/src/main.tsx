@@ -566,6 +566,7 @@ function App() {
               <div className="progress-bar" style={{ width: `${progress?.progressPct ?? 0}%` }} />
             </div>
             <p>{progress?.approved ?? 0}/{progress?.total ?? 0} concluídas</p>
+            <p>Imagem atual: {Math.min((progress?.approved ?? 0) + 1, progress?.total ?? 0)} de {progress?.total ?? 0}</p>
             <button type="button" onClick={cancelAutoSequence}>Cancelar</button>
           </div>
         </div>

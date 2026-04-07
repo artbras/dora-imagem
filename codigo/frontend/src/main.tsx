@@ -309,7 +309,7 @@ function App() {
   useEffect(() => {
     if (!jobId) return
     if (jobStatus !== 'processing') return
-    const t = setInterval(() => void loadJob(jobId), 3000)
+    const t = setInterval(() => void loadJob(jobId), 5000)
     return () => clearInterval(t)
   }, [jobId, jobStatus])
 

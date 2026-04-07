@@ -48,9 +48,11 @@ function App() {
   const [route, setRoute] = useState(window.location.pathname === '/config' ? '/config' : '/')
   const [zoomOpen, setZoomOpen] = useState(false)
   const [zoomLevel, setZoomLevel] = useState(1)
+  const [autoSequenceMode, setAutoSequenceMode] = useState(false)
 
   const generatedTask = useMemo(() => tasks.find((t) => t.status === 'generated') || null, [tasks])
   const loadJobInFlight = useRef(false)
+  const autoSequenceInFlight = useRef(false)
 
   useEffect(() => {
     const query = new URLSearchParams(window.location.search)
@@ -270,6 +272,19 @@ function App() {
     } finally { setBusy(false); setActionLoading(null) }
   }
 
+  function startAutoSequence() {
+    if (!jobId) return
+    setAutoSequenceMode(true)
+    setMsg('Gerando sequência selecionada...')
+  }
+
+  function cancelAutoSequence() {
+    setAutoSequenceMode(false)
+    setActionLoading(null)
+    setBusy(false)
+    setMsg('Sequência automática cancelada pelo usuário.')
+  }
+
   async function ensureDriveConnected() {
     try {
       const status = await apiGet(`/auth/drive-status?email=${encodeURIComponent(adminEmail)}`)
@@ -324,6 +339,44 @@ function App() {
     const t = setInterval(() => void loadJob(jobId), 5000)
     return () => clearInterval(t)
   }, [jobId, jobStatus])
+
+  // Sequência automática: salva a gerada atual e segue até concluir todas
+  useEffect(() => {
+    if (!autoSequenceMode) return
+    if (!jobId) return
+
+    const runTick = async () => {
+      if (autoSequenceInFlight.current) return
+      autoSequenceInFlight.current = true
+      try {
+        await loadJob(jobId)
+
+        // se já finalizou, encerra modo automático
+        if (jobStatus === 'completed' || ((progress?.approved || 0) >= (progress?.total || 0) && (progress?.total || 0) > 0)) {
+          setAutoSequenceMode(false)
+          setMsg('Sequência selecionada concluída com sucesso.')
+          return
+        }
+
+        if (generatedTask) {
+          setActionLoading('approve')
+          await apiSend(`/tasks/${generatedTask.id}/approve`, 'POST')
+          await loadJob(jobId)
+          setActionLoading(null)
+        }
+      } catch (e: any) {
+        setAutoSequenceMode(false)
+        setActionLoading(null)
+        setMsg(`Erro na sequência automática: ${String(e?.message || e)}`)
+      } finally {
+        autoSequenceInFlight.current = false
+      }
+    }
+
+    void runTick()
+    const t = setInterval(() => void runTick(), 2500)
+    return () => clearInterval(t)
+  }, [autoSequenceMode, jobId, generatedTask, jobStatus, progress])
 
   if (!session) {
     return (
@@ -485,15 +538,37 @@ function App() {
                     </div>
                   </div>
                   <div className="row">
-                    <button disabled={busy} onClick={approveCurrent}>{actionLoading === 'approve' ? 'Aprovando...' : '✅ Salvar'}</button>
-                    <button disabled={busy} onClick={rejectCurrent}>{actionLoading === 'reject' ? 'Recusando...' : '❌ Recusar'}</button>
-                    <button type="button" disabled={busy} onClick={() => window.location.reload()}>Cancelar</button>
+                    {!autoSequenceMode ? (
+                      <>
+                        <button disabled={busy} onClick={approveCurrent}>{actionLoading === 'approve' ? 'Aprovando...' : '✅ Salvar'}</button>
+                        <button disabled={busy} onClick={rejectCurrent}>{actionLoading === 'reject' ? 'Recusando...' : '❌ Recusar'}</button>
+                        <button type="button" disabled={busy} onClick={startAutoSequence}>⚙️ Gerar Sequência Selecionada</button>
+                        <button type="button" disabled={busy} onClick={() => window.location.reload()}>Cancelar</button>
+                      </>
+                    ) : (
+                      <button type="button" onClick={cancelAutoSequence}>Cancelar</button>
+                    )}
                   </div>
                 </>
               )}
             </section>
           )}
         </>
+      )}
+
+      {autoSequenceMode && (
+        <div className="sequence-overlay">
+          <div className="sequence-modal">
+            <div className="gear">⚙️</div>
+            <h3>Gerando sequência selecionada</h3>
+            <p>Aguarde enquanto salvamos e processamos as imagens automaticamente.</p>
+            <div className="progress-wrap" aria-label="Progresso da sequência">
+              <div className="progress-bar" style={{ width: `${progress?.progressPct ?? 0}%` }} />
+            </div>
+            <p>{progress?.approved ?? 0}/{progress?.total ?? 0} concluídas</p>
+            <button type="button" onClick={cancelAutoSequence}>Cancelar</button>
+          </div>
+        </div>
       )}
 
       {zoomOpen && generatedTask?.output_temp_url?.startsWith('data:image') && (
@@ -549,12 +624,16 @@ style.innerHTML = `
   .progress-wrap { width:100%; height:10px; border-radius:999px; background:#0a1018; border:1px solid rgba(106,255,191,.25); overflow:hidden; margin:8px 0; }
   .progress-bar { height:100%; background: linear-gradient(90deg, #2cae84, #69ffc0); transition: width .5s ease; }
   .processing-hint { font-size:12px; color:#9fd6ff; animation: pulse 1.4s ease-in-out infinite; }
+  .sequence-overlay { position:fixed; inset:0; background:rgba(4,8,14,.86); display:grid; place-items:center; z-index:10000; }
+  .sequence-modal { width:min(92vw, 520px); background:#0b1220; border:1px solid rgba(106,255,191,.35); border-radius:14px; padding:18px; text-align:center; box-shadow:0 20px 60px rgba(0,0,0,.5); }
+  .gear { font-size:44px; display:inline-block; animation: spin 1.6s linear infinite; }
   .zoom-overlay { position:fixed; inset:0; background:rgba(0,0,0,.75); display:grid; place-items:center; z-index:9999; }
   .zoom-box { position:relative; width:min(92vw, 1100px); height:min(88vh, 900px); background:#0b1220; border:1px solid rgba(106,255,191,.25); border-radius:12px; padding:12px; overflow:auto; }
   .zoom-toolbar { position:sticky; top:0; z-index:3; display:flex; gap:8px; align-items:center; justify-content:flex-end; margin-bottom:8px; background:rgba(11,18,32,.8); backdrop-filter: blur(4px); padding:6px; border-radius:10px; }
   .zoom-img { width:100%; height:calc(100% - 52px); object-fit:contain; }
   .zoom-close { z-index:2; }
   @keyframes pulse { 0%,100%{opacity:.5} 50%{opacity:1} }
+  @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
   input, select, textarea, button { border-radius:10px; border:1px solid rgba(106,255,191,.25); background:#0d1522; color:#eaf2ff; padding:10px; }
   button { background: linear-gradient(180deg, #23334d, #18263d); cursor:pointer; }
   button:hover { border-color: rgba(106,255,191,.55); }

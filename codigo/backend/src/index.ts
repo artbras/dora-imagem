@@ -454,6 +454,30 @@ app.post('/tasks/:id/approve', async (request, reply) => {
     return reply.send({ ok: true, message: 'task já aprovada (idempotente)', outputImageId: task.output_image_id })
   }
 
+  const { data: claimTask, error: claimError } = await supabase
+    .from('image_tasks')
+    .update({ status: 'approved', output_image_id: 'uploading' })
+    .eq('id', params.id)
+    .eq('status', 'generated')
+    .select('id,job_id')
+    .maybeSingle()
+
+  if (claimError) return reply.code(500).send({ ok: false, error: claimError.message })
+  if (!claimTask) {
+    const { data: latest } = await supabase
+      .from('image_tasks')
+      .select('id,job_id,status,output_image_id')
+      .eq('id', params.id)
+      .maybeSingle()
+
+    if (latest?.status === 'approved' && latest?.output_image_id && latest.output_image_id !== 'uploading') {
+      await updateJobProgress(String(latest.job_id))
+      return reply.send({ ok: true, message: 'task já aprovada (idempotente)', outputImageId: latest.output_image_id })
+    }
+
+    return reply.send({ ok: true, message: 'task em processamento de aprovação, tente atualizar' })
+  }
+
   const { data: jobRow, error: jobError } = await supabase
     .from('jobs')
     .select('id,user_email,reference_image_id')
@@ -465,9 +489,10 @@ app.post('/tasks/:id/approve', async (request, reply) => {
   let outputImageId = body.outputImageId || null
   const tempUrl = body.outputTempUrl || task.output_temp_url || null
 
-  if (!outputImageId && tempUrl && tempUrl.startsWith('data:')) {
-    const tokenRow = await loadTokenByEmail(jobRow.user_email)
-    if (!tokenRow) return reply.code(404).send({ ok: false, error: 'tokens Google nao encontrados para este email' })
+  try {
+    if (!outputImageId && tempUrl && tempUrl.startsWith('data:')) {
+      const tokenRow = await loadTokenByEmail(jobRow.user_email)
+      if (!tokenRow) return reply.code(404).send({ ok: false, error: 'tokens Google nao encontrados para este email' })
 
     oauth2Client.setCredentials({
       access_token: tokenRow.access_token ?? undefined,
@@ -523,6 +548,13 @@ app.post('/tasks/:id/approve', async (request, reply) => {
         })
       }
     }
+  }
+  } catch (err: any) {
+    await supabase
+      .from('image_tasks')
+      .update({ status: 'generated', output_image_id: null })
+      .eq('id', params.id)
+    return reply.code(500).send({ ok: false, error: err?.message || 'falha ao salvar imagem no drive' })
   }
 
   const { error: updateError } = await supabase

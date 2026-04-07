@@ -511,7 +511,14 @@ function App() {
               )}
 
               <h4>Tela de aprovação</h4>
-              {!generatedTask ? <p>Nenhuma imagem aguardando aprovação.</p> : (
+              {!generatedTask ? (
+                <div className="row" style={{ justifyContent: 'space-between', alignItems: 'center' }}>
+                  <p>Nenhuma imagem aguardando aprovação.</p>
+                  {jobStatus === 'completed' && (
+                    <button type="button" onClick={() => window.location.reload()}>LIMPAR</button>
+                  )}
+                </div>
+              ) : (
                 <>
                   <p>Task #{generatedTask.position + 1} • attempts: {generatedTask.attempts}</p>
                   <div className="split">

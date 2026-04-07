@@ -386,11 +386,24 @@ app.get('/jobs/:id', async (request, reply) => {
 
   const { data: tasks, error: tasksError } = await supabase
     .from('image_tasks')
-    .select('id,base_image_id,output_image_id,output_temp_url,status,attempts,position,created_at,updated_at')
+    .select('id,base_image_id,output_image_id,status,attempts,position,created_at,updated_at')
     .eq('job_id', params.id)
     .order('position', { ascending: true })
 
   if (tasksError) return reply.code(500).send({ ok: false, error: tasksError.message })
+
+  const { data: generatedTask } = await supabase
+    .from('image_tasks')
+    .select('id,output_temp_url')
+    .eq('job_id', params.id)
+    .eq('status', 'generated')
+    .order('position', { ascending: true })
+    .limit(1)
+    .maybeSingle()
+
+  const tasksWithPreview = (tasks || []).map((t: any) =>
+    generatedTask && t.id === generatedTask.id ? { ...t, output_temp_url: generatedTask.output_temp_url } : t,
+  )
 
   const total = (tasks || []).length
   const approved = (tasks || []).filter((t: any) => t.status === 'approved').length
@@ -399,7 +412,7 @@ app.get('/jobs/:id', async (request, reply) => {
   const rejected = (tasks || []).filter((t: any) => t.status === 'rejected').length
   const progressPct = total > 0 ? Math.round((approved / total) * 100) : 0
 
-  return reply.send({ ok: true, job, progress: { total, approved, generated, pending, rejected, progressPct }, tasks: tasks || [] })
+  return reply.send({ ok: true, job, progress: { total, approved, generated, pending, rejected, progressPct }, tasks: tasksWithPreview || [] })
 })
 
 app.post('/jobs/:id/start', async (request, reply) => {

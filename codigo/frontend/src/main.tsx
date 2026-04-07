@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react'
+import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { createRoot } from 'react-dom/client'
 import { createClient, type Session } from '@supabase/supabase-js'
 
@@ -50,6 +50,7 @@ function App() {
   const [zoomLevel, setZoomLevel] = useState(1)
 
   const generatedTask = useMemo(() => tasks.find((t) => t.status === 'generated') || null, [tasks])
+  const loadJobInFlight = useRef(false)
 
   useEffect(() => {
     const query = new URLSearchParams(window.location.search)
@@ -231,6 +232,8 @@ function App() {
 
   async function loadJob(targetJobId = jobId) {
     if (!targetJobId) return
+    if (loadJobInFlight.current) return
+    loadJobInFlight.current = true
     try {
       const data = await apiGet(`/jobs/${targetJobId}`)
       setJobStatus(data.job?.status || '')
@@ -238,6 +241,8 @@ function App() {
       setProgress(data.progress || null)
     } catch (e: any) {
       setMsg(`Erro ao carregar job: ${String(e?.message || e)}`)
+    } finally {
+      loadJobInFlight.current = false
     }
   }
 

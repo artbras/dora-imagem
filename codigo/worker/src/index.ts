@@ -106,8 +106,8 @@ class NanoBananaAdapter implements ImageProcessor {
   }
 }
 
-function getModelAdapter(model: string, featureNanoBanana: boolean): ImageProcessor {
-  if (model === 'nano_banana' && featureNanoBanana) return new NanoBananaAdapter()
+function getModelAdapter(model: string): ImageProcessor {
+  if (model === 'nano_banana') return new NanoBananaAdapter()
   return new GPTAdapter()
 }
 
@@ -166,14 +166,13 @@ async function processNextImage(jobId: string) {
   const startedAt = Date.now()
   const { data: appConfig } = await supabase
     .from('app_config')
-    .select('prompt_positive,prompt_negative,feature_nano_banana')
+    .select('prompt_positive,prompt_negative')
     .order('created_at', { ascending: false })
     .limit(1)
     .maybeSingle()
 
   const promptPositive = appConfig?.prompt_positive || 'Substituir tecido da cesta preservando composição e iluminação.'
   const promptNegative = appConfig?.prompt_negative || 'Não alterar produtos, enquadramento ou branding.'
-  const featureNanoBanana = Boolean(appConfig?.feature_nano_banana)
 
   const { data: jobRow, error: jobError } = await supabase
     .from('jobs')
@@ -227,7 +226,7 @@ async function processNextImage(jobId: string) {
     const referenceMimeType = detectMimeFromBytes(referenceImage)
 
     const currentModel = String(jobRow.model || 'gpt')
-    const adapter = getModelAdapter(currentModel, featureNanoBanana)
+    const adapter = getModelAdapter(currentModel)
     const output = await adapter.generate({
       baseImage,
       referenceImage,

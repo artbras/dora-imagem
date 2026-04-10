@@ -1,19 +1,27 @@
-# Dora-imagem — STATUS: RESOLVIDO / ARQUIVADO
+# Dora-imagem — STATUS: FINALIZADO / ARQUIVADO
 
-Data: 2026-04-07
+Data de encerramento consolidado: 2026-04-10
 
 ## Encerramento
-Projeto Dora-imagem finalizado com fluxo operacional funcional e documentado.
+Projeto Dora-imagem finalizado com fluxo operacional funcional em produção, documentação consolidada e procedimentos operacionais registrados.
 
-## Entregas finais consolidadas
-- Geração real por LLM (GPT e Nano Banana)
+## Entregas consolidadas
+- Geração real por LLM (GPT + Nano Banana Pro)
 - Aprovação/recusa e sequência automática
 - Salvamento no Drive em `.webp` com nome composto
 - UI operacional refinada (zoom, progresso, bloqueio de sequência, limpar)
-- Script de migração para nova instância Supabase
-- Runbook de migração e documentação técnica atualizada
+- Correções de estabilidade (idempotência de approve + claim atômico)
+- Scripts e documentação de migração Supabase (runbook/checklist/export)
+
+## Decisões finais críticas
+- Runtime do Dora em VPS com Docker Compose isolado (coexistindo com EasyPanel)
+- Intervenções de manutenção com escopo mínimo (evitar impacto no n8n)
+- Modelo Nano Banana Pro válido no provider: `gemini-3-pro-image-preview`
+
+## Evidência final de operação
+- Job validado com Nano Banana Pro (`api_model=gemini-3-pro-image-preview`) concluído com sucesso.
 
 ## Estado
-- Repositório atualizado
+- Repositório atualizado no GitHub
 - Produção operando
-- Projeto arquivado como resolvido
+- Projeto arquivado como finalizado

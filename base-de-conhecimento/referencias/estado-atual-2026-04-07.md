@@ -2,7 +2,7 @@
 
 ## Stack e Deploy
 - Frontend: Vercel (`https://dora.adoromimos.com.br`)
-- Backend + Worker + Redis: VPS separada (EasyPanel coexistente, deploy isolado)
+- Backend + Worker + Redis: VPS separada (coexistente com EasyPanel), em **Docker Compose isolado** (`/opt/dora-imagem/repo/docker-compose.vps.yml`)
 - Banco/Auth: Supabase
 - Armazenamento de entrada/saída: Google Drive (OAuth)
 
@@ -12,7 +12,7 @@
 3. Carregamento das imagens de Base e Referência.
 4. Seleção de LLM na operação:
    - GPT (OpenAI)
-   - Nano Banana (Gemini 2.5 Flash Image)
+   - Nano Banana (Gemini Nano Banana Pro)
 5. Geração por task, revisão visual e ações:
    - Salvar
    - Recusar
@@ -23,8 +23,13 @@
 
 ## LLMs
 - GPT: integração real via OpenAI Images edit (modelo fixado em `gpt-image-1.5`).
-- Nano Banana: integração real via Gemini API oficial (`gemini-2.5-flash-image-preview`).
+- Nano Banana: integração real via Gemini API oficial (`gemini-3-pro-image-preview`, display name: Nano Banana Pro).
 - Em falha de geração, comportamento é falhar e avisar (sem fallback automático).
+
+## Nota operacional (2026-04-10)
+- O nome `gemini-3-pro-image` **não é válido** no provider atual; tentativa com esse identificador causou retry/falha em jobs Nano Banana.
+- Validação oficial via `ListModels` confirmou modelo correto para Nano Banana Pro: `models/gemini-3-pro-image-preview`.
+- Worker atualizado para logar `api_model` em `processing_logs.message`, permitindo auditoria direta do modelo real usado por task.
 
 ## UX/UI implementada
 - Tema dark premium.

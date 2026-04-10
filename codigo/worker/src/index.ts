@@ -226,6 +226,10 @@ async function processNextImage(jobId: string) {
     const referenceMimeType = detectMimeFromBytes(referenceImage)
 
     const currentModel = String(jobRow.model || 'gpt')
+    const apiModelName = currentModel === 'nano_banana'
+      ? (process.env.NANO_BANANA_MODEL || 'gemini-3-pro-image')
+      : 'gpt-image-1.5'
+
     const adapter = getModelAdapter(currentModel)
     const output = await adapter.generate({
       baseImage,
@@ -258,7 +262,7 @@ async function processNextImage(jobId: string) {
       processingTimeMs: Date.now() - startedAt,
       attempts: Number(task.attempts || 0),
       status: 'generated',
-      message: `task gerada com sucesso | model=${currentModel} | prompt+=${promptPositive.length} chars | prompt-=${promptNegative.length} chars`,
+      message: `task gerada com sucesso | model=${currentModel} | api_model=${apiModelName} | prompt+=${promptPositive.length} chars | prompt-=${promptNegative.length} chars`,
     })
 
     console.log('[worker] generated task', { jobId, taskId: task.id, position: task.position })

@@ -60,7 +60,7 @@ class NanoBananaAdapter implements ImageProcessor {
     const apiKey = process.env.NANO_BANANA_API_KEY
     if (!apiKey) throw new Error('NANO_BANANA_API_KEY ausente para NanoBananaAdapter')
 
-    const model = process.env.NANO_BANANA_MODEL || 'gemini-3-pro-image'
+    const model = process.env.NANO_BANANA_MODEL || 'gemini-3-pro-image-preview'
 
     const prompt = [
       params.promptPositive || 'Substituir o tecido com base na referência.',
@@ -227,7 +227,7 @@ async function processNextImage(jobId: string) {
 
     const currentModel = String(jobRow.model || 'gpt')
     const apiModelName = currentModel === 'nano_banana'
-      ? (process.env.NANO_BANANA_MODEL || 'gemini-3-pro-image')
+      ? (process.env.NANO_BANANA_MODEL || 'gemini-3-pro-image-preview')
       : 'gpt-image-1.5'
 
     const adapter = getModelAdapter(currentModel)

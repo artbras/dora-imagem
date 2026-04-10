@@ -60,7 +60,7 @@ class NanoBananaAdapter implements ImageProcessor {
     const apiKey = process.env.NANO_BANANA_API_KEY
     if (!apiKey) throw new Error('NANO_BANANA_API_KEY ausente para NanoBananaAdapter')
 
-    const model = process.env.NANO_BANANA_MODEL || 'gemini-2.5-flash-image-preview'
+    const model = process.env.NANO_BANANA_MODEL || 'gemini-3-pro-image'
 
     const prompt = [
       params.promptPositive || 'Substituir o tecido com base na referência.',

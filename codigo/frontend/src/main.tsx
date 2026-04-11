@@ -26,7 +26,7 @@ const supabase = createClient(supabaseUrl, supabaseAnonKey)
 
 function App() {
   const [session, setSession] = useState<Session | null>(null)
-  const [model, setModel] = useState<'gpt' | 'nano_banana'>('gpt')
+  const [model, setModel] = useState<'gpt' | 'nano_banana'>('nano_banana')
 
   const [baseFiles, setBaseFiles] = useState<DriveFile[]>([])
   const [refFiles, setRefFiles] = useState<DriveFile[]>([])
@@ -38,7 +38,7 @@ function App() {
   const [tasks, setTasks] = useState<JobTask[]>([])
   const [progress, setProgress] = useState<{ total: number; approved: number; progressPct: number } | null>(null)
 
-  const [configLlm, setConfigLlm] = useState<'gpt' | 'nano_banana'>('gpt')
+  const [configLlm, setConfigLlm] = useState<'gpt' | 'nano_banana'>('nano_banana')
   const [promptPositive, setPromptPositive] = useState('')
   const [promptNegative, setPromptNegative] = useState('')
 
@@ -186,8 +186,9 @@ function App() {
     try {
       const data = await apiGet('/config')
       const cfg = data?.config || {}
-      const llm = String(cfg.default_model || 'gpt') === 'nano_banana' ? 'nano_banana' : 'gpt'
+      const llm = String(cfg.default_model || 'nano_banana') === 'nano_banana' ? 'nano_banana' : 'gpt'
       setConfigLlm(llm)
+      setModel(llm)
       setPromptPositive(String(cfg.prompt_positive || ''))
       setPromptNegative(String(cfg.prompt_negative || ''))
     } catch (e: any) {
@@ -423,7 +424,16 @@ function App() {
         <>
           <section className="split">
             <div className="card">
-              <h3>Imagens Base ({baseFiles.length})</h3>
+              <div className="card-head-row">
+                <h3>Imagens Base ({baseFiles.length})</h3>
+                <button
+                  type="button"
+                  onClick={() => setSelectedBaseIds(baseFiles.map((f) => f.id))}
+                  disabled={!baseFiles.length}
+                >
+                  Selecionar Tudo
+                </button>
+              </div>
               <div className="thumb-grid">
                 {baseFiles.map((f) => {
                   const checked = selectedBaseIds.includes(f.id)

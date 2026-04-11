@@ -338,7 +338,7 @@ app.post('/jobs', async (request, reply) => {
   const body = z.object({
     baseImageIds: z.array(z.string().min(1)).min(1),
     referenceImageId: z.string().min(1),
-    model: z.enum(['gpt', 'nano_banana']).default('gpt'),
+    model: z.enum(['gpt', 'nano_banana']).default('nano_banana'),
     email: z.string().email().optional(),
   }).parse(request.body)
 
@@ -625,8 +625,8 @@ app.get('/config', async (request, reply) => {
       id: CONFIG_SINGLETON_ID,
       prompt_positive: '',
       prompt_negative: '',
-      default_model: 'gpt',
-      feature_nano_banana: false,
+      default_model: 'nano_banana',
+      feature_nano_banana: true,
     },
   })
 })

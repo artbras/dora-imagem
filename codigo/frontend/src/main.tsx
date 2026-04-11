@@ -32,6 +32,7 @@ function App() {
   const [refFiles, setRefFiles] = useState<DriveFile[]>([])
   const [selectedBaseIds, setSelectedBaseIds] = useState<string[]>([])
   const [referenceImageId, setReferenceImageId] = useState('')
+  const [baseSearch, setBaseSearch] = useState('')
 
   const [jobId, setJobId] = useState('')
   const [jobStatus, setJobStatus] = useState('')
@@ -51,6 +52,11 @@ function App() {
   const [autoSequenceMode, setAutoSequenceMode] = useState(false)
 
   const generatedTask = useMemo(() => tasks.find((t) => t.status === 'generated') || null, [tasks])
+  const filteredBaseFiles = useMemo(() => {
+    const term = baseSearch.trim().toLowerCase()
+    if (term.length < 3) return baseFiles
+    return baseFiles.filter((f) => String(f.name || '').toLowerCase().includes(term))
+  }, [baseFiles, baseSearch])
   const loadJobInFlight = useRef(false)
   const autoSequenceInFlight = useRef(false)
 
@@ -434,8 +440,16 @@ function App() {
                   {baseFiles.length > 0 && selectedBaseIds.length === baseFiles.length ? 'Limpar' : 'Selecionar Tudo'}
                 </button>
               </div>
+              <div className="row" style={{ marginBottom: 8 }}>
+                <input
+                  type="text"
+                  placeholder="Buscar imagem base por nome (mín. 3 caracteres)"
+                  value={baseSearch}
+                  onChange={(e) => setBaseSearch(e.target.value)}
+                />
+              </div>
               <div className="thumb-grid">
-                {baseFiles.map((f) => {
+                {filteredBaseFiles.map((f) => {
                   const checked = selectedBaseIds.includes(f.id)
                   const thumb = `${apiBase}/drive/thumbnail?fileId=${encodeURIComponent(f.id)}&email=${encodeURIComponent(adminEmail)}`
                   return (

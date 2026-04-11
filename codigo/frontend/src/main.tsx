@@ -428,10 +428,10 @@ function App() {
                 <h3>Imagens Base ({baseFiles.length})</h3>
                 <button
                   type="button"
-                  onClick={() => setSelectedBaseIds(baseFiles.map((f) => f.id))}
+                  onClick={() => setSelectedBaseIds((prev) => prev.length === baseFiles.length ? [] : baseFiles.map((f) => f.id))}
                   disabled={!baseFiles.length}
                 >
-                  Selecionar Tudo
+                  {baseFiles.length > 0 && selectedBaseIds.length === baseFiles.length ? 'Limpar' : 'Selecionar Tudo'}
                 </button>
               </div>
               <div className="thumb-grid">

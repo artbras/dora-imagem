@@ -425,7 +425,7 @@ function App() {
           <section className="split">
             <div className="card">
               <div className="card-head-row">
-                <h3>Imagens Base ({baseFiles.length})</h3>
+                <h3>Imagens Base ({baseFiles.length}) • Selecionadas: {selectedBaseIds.length}/{baseFiles.length}</h3>
                 <button
                   type="button"
                   onClick={() => setSelectedBaseIds((prev) => prev.length === baseFiles.length ? [] : baseFiles.map((f) => f.id))}

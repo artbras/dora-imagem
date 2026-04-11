@@ -4,7 +4,12 @@ Sistema de geração/variação de imagens de cestas com IA, usando Base + Refer
 
 ## Status
 - **Finalizado e arquivado** ✅
-- Última atualização operacional: **2026-04-10**
+- Última atualização operacional: **2026-04-11**
+
+## Acessos (produção)
+- Frontend: `https://dora.adoromimos.com.br`
+- Backend/API: `https://api.dora.adoromimos.com.br`
+- Healthcheck API: `https://api.dora.adoromimos.com.br/health`
 
 ## Stack (final)
 - Frontend: React + Vite (Vercel)
@@ -33,10 +38,17 @@ Sistema de geração/variação de imagens de cestas com IA, usando Base + Refer
 - `codigo/worker` processamento assíncrono
 - `base-de-conhecimento` documentação técnica
 - `dados-historico` encerramento e registros operacionais
+- `secrets` credenciais operacionais (não versionado)
+
+## Credenciais
+- Credenciais do projeto centralizadas em `secrets/credentials-production.env`.
+- Diretório `secrets/` é ignorado no Git e deve permanecer privado.
 
 ## Documentação de referência
 - `dados-historico/STATUS-RESOLVIDO.md`
 - `dados-historico/registro-operacional-2026-04-10.md`
+- `dados-historico/registro-operacional-2026-04-11.md`
 - `base-de-conhecimento/referencias/estado-atual-2026-04-07.md`
+- `base-de-conhecimento/referencias/acessos-operacionais.md`
 - `base-de-conhecimento/referencias/migracao-supabase-runbook.md`
 - `base-de-conhecimento/referencias/migracao-supabase-checklist-execucao.md`

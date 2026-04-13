@@ -40,6 +40,10 @@ function App() {
   const [progress, setProgress] = useState<{ total: number; approved: number; progressPct: number } | null>(null)
 
   const [configLlm, setConfigLlm] = useState<'gpt' | 'nano_banana'>('nano_banana')
+  const [openaiImageModel, setOpenaiImageModel] = useState('gpt-image-1.5')
+  const [geminiImageModel, setGeminiImageModel] = useState('gemini-3-pro-image-preview')
+  const [openaiOptions, setOpenaiOptions] = useState<string[]>(['gpt-image-1', 'gpt-image-1.5'])
+  const [geminiOptions, setGeminiOptions] = useState<string[]>(['gemini-2.5-flash-image', 'gemini-3-pro-image-preview', 'gemini-3.1-flash-image-preview'])
   const [promptPositive, setPromptPositive] = useState('')
   const [promptNegative, setPromptNegative] = useState('')
 
@@ -197,6 +201,12 @@ function App() {
       setModel(llm)
       setPromptPositive(String(cfg.prompt_positive || ''))
       setPromptNegative(String(cfg.prompt_negative || ''))
+      const openaiList = Array.isArray(data?.options?.openai_image_models) ? data.options.openai_image_models.map(String) : ['gpt-image-1', 'gpt-image-1.5']
+      const geminiList = Array.isArray(data?.options?.gemini_image_models) ? data.options.gemini_image_models.map(String) : ['gemini-2.5-flash-image', 'gemini-3-pro-image-preview', 'gemini-3.1-flash-image-preview']
+      setOpenaiOptions(openaiList)
+      setGeminiOptions(geminiList)
+      setOpenaiImageModel(String(cfg.openai_image_model || openaiList[0] || 'gpt-image-1.5'))
+      setGeminiImageModel(String(cfg.gemini_image_model || geminiList[0] || 'gemini-3-pro-image-preview'))
     } catch (e: any) {
       setMsg(`Erro ao carregar config: ${String(e?.message || e)}`)
     }
@@ -205,7 +215,13 @@ function App() {
   async function saveConfig() {
     setBusy(true)
     try {
-      await apiSend('/config', 'PUT', { llm: configLlm, promptPositive, promptNegative })
+      await apiSend('/config', 'PUT', {
+        llm: configLlm,
+        openaiImageModel,
+        geminiImageModel,
+        promptPositive,
+        promptNegative,
+      })
       setMsg('Configuração salva com sucesso.')
     } catch (e: any) {
       setMsg(`Erro ao salvar config: ${String(e?.message || e)}`)
@@ -419,6 +435,22 @@ function App() {
         <section className="card">
           <h3>Configuração</h3>
           <div className="grid">
+            <label>LLM padrão</label>
+            <select value={configLlm} onChange={(e) => setConfigLlm(e.target.value === 'nano_banana' ? 'nano_banana' : 'gpt')}>
+              <option value="nano_banana">Google - Gemini (Nano Banana)</option>
+              <option value="gpt">OpenAI - GPT</option>
+            </select>
+
+            <label>OpenAI - GPT (modelo de imagem)</label>
+            <select value={openaiImageModel} onChange={(e) => setOpenaiImageModel(e.target.value)}>
+              {openaiOptions.map((m) => <option key={m} value={m}>{m}</option>)}
+            </select>
+
+            <label>Google - Gemini (modelo de imagem)</label>
+            <select value={geminiImageModel} onChange={(e) => setGeminiImageModel(e.target.value)}>
+              {geminiOptions.map((m) => <option key={m} value={m}>{m}</option>)}
+            </select>
+
             <label>Prompt Positivo</label>
             <textarea rows={5} value={promptPositive} onChange={(e) => setPromptPositive(e.target.value)} />
             <label>Prompt Negativo</label>

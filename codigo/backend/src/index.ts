@@ -5,6 +5,7 @@ import { google } from 'googleapis'
 import { createClient } from '@supabase/supabase-js'
 import { z } from 'zod'
 import { Queue } from 'bullmq'
+import { Redis } from 'ioredis'
 import { Readable } from 'node:stream'
 import sharp from 'sharp'
 
@@ -60,6 +61,15 @@ await app.register(cors, {
 
 const supabase = createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY)
 const queue = new Queue(env.QUEUE_NAME, { connection: { url: env.REDIS_URL } })
+const redis = new Redis(env.REDIS_URL)
+
+const OPENAI_IMAGE_MODELS = ['gpt-image-1', 'gpt-image-1.5'] as const
+const GEMINI_IMAGE_MODELS = ['gemini-2.5-flash-image', 'gemini-3-pro-image-preview', 'gemini-3.1-flash-image-preview'] as const
+const DEFAULT_OPENAI_IMAGE_MODEL = 'gpt-image-1.5'
+const DEFAULT_GEMINI_IMAGE_MODEL = 'gemini-3-pro-image-preview'
+
+const CFG_OPENAI_MODEL_KEY = 'dora:config:openai_image_model'
+const CFG_GEMINI_MODEL_KEY = 'dora:config:gemini_image_model'
 
 const oauth2Client = new google.auth.OAuth2(
   env.GOOGLE_CLIENT_ID,
@@ -619,14 +629,30 @@ app.get('/config', async (request, reply) => {
     data = fallback.data
   }
 
+  const [openaiImageModelRaw, geminiImageModelRaw] = await redis.mget(CFG_OPENAI_MODEL_KEY, CFG_GEMINI_MODEL_KEY)
+  const openaiImageModel = OPENAI_IMAGE_MODELS.includes((openaiImageModelRaw || '') as any)
+    ? (openaiImageModelRaw as string)
+    : DEFAULT_OPENAI_IMAGE_MODEL
+  const geminiImageModel = GEMINI_IMAGE_MODELS.includes((geminiImageModelRaw || '') as any)
+    ? (geminiImageModelRaw as string)
+    : DEFAULT_GEMINI_IMAGE_MODEL
+
   return reply.send({
     ok: true,
-    config: data || {
-      id: CONFIG_SINGLETON_ID,
-      prompt_positive: '',
-      prompt_negative: '',
-      default_model: 'nano_banana',
-      feature_nano_banana: true,
+    config: {
+      ...(data || {
+        id: CONFIG_SINGLETON_ID,
+        prompt_positive: '',
+        prompt_negative: '',
+        default_model: 'nano_banana',
+        feature_nano_banana: true,
+      }),
+      openai_image_model: openaiImageModel,
+      gemini_image_model: geminiImageModel,
+    },
+    options: {
+      openai_image_models: OPENAI_IMAGE_MODELS,
+      gemini_image_models: GEMINI_IMAGE_MODELS,
     },
   })
 })
@@ -639,6 +665,8 @@ app.put('/config', async (request, reply) => {
     llm: z.enum(['gpt', 'nano_banana']),
     promptPositive: z.string().default(''),
     promptNegative: z.string().default(''),
+    openaiImageModel: z.enum(OPENAI_IMAGE_MODELS).default(DEFAULT_OPENAI_IMAGE_MODEL),
+    geminiImageModel: z.enum(GEMINI_IMAGE_MODELS).default(DEFAULT_GEMINI_IMAGE_MODEL),
   }).parse(request.body)
 
   const payload = {
@@ -656,7 +684,24 @@ app.put('/config', async (request, reply) => {
     .single()
 
   if (error) return reply.code(500).send({ ok: false, error: error.message })
-  return reply.send({ ok: true, config: data })
+
+  await redis.mset({
+    [CFG_OPENAI_MODEL_KEY]: body.openaiImageModel,
+    [CFG_GEMINI_MODEL_KEY]: body.geminiImageModel,
+  })
+
+  return reply.send({
+    ok: true,
+    config: {
+      ...data,
+      openai_image_model: body.openaiImageModel,
+      gemini_image_model: body.geminiImageModel,
+    },
+    options: {
+      openai_image_models: OPENAI_IMAGE_MODELS,
+      gemini_image_models: GEMINI_IMAGE_MODELS,
+    },
+  })
 })
 
 const port = Number(env.PORT || 8787)

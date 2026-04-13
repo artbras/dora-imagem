@@ -3,6 +3,7 @@ import { Queue, Worker, Job } from 'bullmq'
 import { createClient } from '@supabase/supabase-js'
 import { google } from 'googleapis'
 import OpenAI, { toFile } from 'openai'
+import { Redis } from 'ioredis'
 
 type JobPayload = { jobId: string }
 
@@ -21,14 +22,16 @@ interface ImageProcessor {
 
 class GPTAdapter implements ImageProcessor {
   private client: OpenAI
+  private model: string
 
-  constructor() {
+  constructor(model: string) {
     if (!process.env.OPENAI_API_KEY) throw new Error('OPENAI_API_KEY ausente para GPTAdapter')
     this.client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
+    this.model = model
   }
 
   async generate(params: ProcessInput): Promise<Buffer> {
-    const model = 'gpt-image-1.5'
+    const model = this.model
     const baseExt = params.baseMimeType === 'image/jpeg' ? 'jpg' : params.baseMimeType === 'image/webp' ? 'webp' : 'png'
     const refExt = params.referenceMimeType === 'image/jpeg' ? 'jpg' : params.referenceMimeType === 'image/webp' ? 'webp' : 'png'
 
@@ -56,11 +59,17 @@ class GPTAdapter implements ImageProcessor {
 }
 
 class NanoBananaAdapter implements ImageProcessor {
+  private model: string
+
+  constructor(model: string) {
+    this.model = model
+  }
+
   async generate(params: ProcessInput): Promise<Buffer> {
     const apiKey = process.env.NANO_BANANA_API_KEY
     if (!apiKey) throw new Error('NANO_BANANA_API_KEY ausente para NanoBananaAdapter')
 
-    const model = process.env.NANO_BANANA_MODEL || 'gemini-3-pro-image-preview'
+    const model = this.model
 
     const prompt = [
       params.promptPositive || 'Substituir o tecido com base na referência.',
@@ -106,9 +115,9 @@ class NanoBananaAdapter implements ImageProcessor {
   }
 }
 
-function getModelAdapter(model: string): ImageProcessor {
-  if (model === 'nano_banana') return new NanoBananaAdapter()
-  return new GPTAdapter()
+function getModelAdapter(model: string, apiModelName: string): ImageProcessor {
+  if (model === 'nano_banana') return new NanoBananaAdapter(apiModelName)
+  return new GPTAdapter(apiModelName)
 }
 
 function detectMimeFromBytes(buf: Buffer): 'image/png' | 'image/jpeg' | 'image/webp' {
@@ -132,8 +141,14 @@ for (const key of required) {
 const redisUrl = process.env.REDIS_URL || 'redis://127.0.0.1:6379'
 const queueName = process.env.QUEUE_NAME || 'dora-image-jobs'
 
+const DEFAULT_OPENAI_IMAGE_MODEL = 'gpt-image-1.5'
+const DEFAULT_GEMINI_IMAGE_MODEL = process.env.NANO_BANANA_MODEL || 'gemini-3-pro-image-preview'
+const CFG_OPENAI_MODEL_KEY = 'dora:config:openai_image_model'
+const CFG_GEMINI_MODEL_KEY = 'dora:config:gemini_image_model'
+
 const supabase = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
 const queue = new Queue(queueName, { connection: { url: redisUrl } })
+const redis = new Redis(redisUrl)
 
 const oauth2Client = new google.auth.OAuth2(
   process.env.GOOGLE_CLIENT_ID,
@@ -226,11 +241,12 @@ async function processNextImage(jobId: string) {
     const referenceMimeType = detectMimeFromBytes(referenceImage)
 
     const currentModel = String(jobRow.model || 'gpt')
+    const [openaiCfg, geminiCfg] = await redis.mget(CFG_OPENAI_MODEL_KEY, CFG_GEMINI_MODEL_KEY)
     const apiModelName = currentModel === 'nano_banana'
-      ? (process.env.NANO_BANANA_MODEL || 'gemini-3-pro-image-preview')
-      : 'gpt-image-1.5'
+      ? (geminiCfg || DEFAULT_GEMINI_IMAGE_MODEL)
+      : (openaiCfg || DEFAULT_OPENAI_IMAGE_MODEL)
 
-    const adapter = getModelAdapter(currentModel)
+    const adapter = getModelAdapter(currentModel, apiModelName)
     const output = await adapter.generate({
       baseImage,
       referenceImage,

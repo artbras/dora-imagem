@@ -24,4 +24,5 @@
 ## Credenciais
 - Todas as credenciais operacionais do projeto ficam em:
   - `secrets/credentials-production.env`
+- Inclui credenciais de Supabase, Google, OpenAI, Gemini, GitHub, Vercel e VPS operacional do Dora.
 - Observação: diretório `secrets/` é ignorado no Git e não deve ser versionado.

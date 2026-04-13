@@ -1,6 +1,6 @@
 # Dora-imagem — STATUS: FINALIZADO / ARQUIVADO
 
-Data de encerramento consolidado: 2026-04-11
+Data de encerramento consolidado: 2026-04-13
 
 ## Encerramento
 Projeto Dora-imagem finalizado com fluxo operacional funcional em produção, documentação consolidada e procedimentos operacionais registrados.

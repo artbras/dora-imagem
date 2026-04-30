@@ -664,13 +664,23 @@ app.put('/config', async (request, reply) => {
   const auth = await authenticateRequest(request, reply)
   if (!auth) return
 
-  const body = z.object({
+  const bodyRaw = z.object({
     llm: z.enum(['gpt', 'nano_banana']),
     promptPositive: z.string().default(''),
     promptNegative: z.string().default(''),
-    openaiImageModel: z.enum(OPENAI_IMAGE_MODELS).default(DEFAULT_OPENAI_IMAGE_MODEL),
-    geminiImageModel: z.enum(GEMINI_IMAGE_MODELS).default(DEFAULT_GEMINI_IMAGE_MODEL),
+    openaiImageModel: z.string().optional(),
+    geminiImageModel: z.string().optional(),
   }).parse(request.body)
+
+  const body = {
+    ...bodyRaw,
+    openaiImageModel: OPENAI_IMAGE_MODELS.includes((bodyRaw.openaiImageModel || '') as any)
+      ? (bodyRaw.openaiImageModel as string)
+      : DEFAULT_OPENAI_IMAGE_MODEL,
+    geminiImageModel: GEMINI_IMAGE_MODELS.includes((bodyRaw.geminiImageModel || '') as any)
+      ? (bodyRaw.geminiImageModel as string)
+      : DEFAULT_GEMINI_IMAGE_MODEL,
+  }
 
   const payload = {
     id: CONFIG_SINGLETON_ID,

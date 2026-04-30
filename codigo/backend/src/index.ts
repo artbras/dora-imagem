@@ -530,9 +530,12 @@ app.post('/tasks/:id/approve', async (request, reply) => {
 
       const baseName = sanitizeFileBaseName((baseMeta as any)?.data?.name)
       const refName = sanitizeFileBaseName((refMeta as any)?.data?.name)
-      const fileName = `${baseName}+${refName}.webp`
+      const fileName = `${baseName}-${refName}.webp`
 
-      const webpBytes = await sharp(bytes).webp({ quality: 92 }).toBuffer()
+      const webpBytes = await sharp(bytes)
+        .resize(1920, 1920, { fit: 'cover' })
+        .webp({ quality: 92 })
+        .toBuffer()
 
       const uploadRes = await drive.files.create({
         requestBody: {

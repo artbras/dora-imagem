@@ -49,7 +49,7 @@ class GPTAdapter implements ImageProcessor {
       model,
       image: [base, ref] as any,
       prompt,
-      size: '1024x1024',
+      size: '1920x1920',
     })
 
     const b64 = result?.data?.[0]?.b64_json

@@ -698,10 +698,14 @@ app.put('/config', async (request, reply) => {
 
   if (error) return reply.code(500).send({ ok: false, error: error.message })
 
-  await redis.mset({
-    [CFG_OPENAI_MODEL_KEY]: body.openaiImageModel,
-    [CFG_GEMINI_MODEL_KEY]: body.geminiImageModel,
-  })
+  try {
+    await redis.mset({
+      [CFG_OPENAI_MODEL_KEY]: body.openaiImageModel,
+      [CFG_GEMINI_MODEL_KEY]: body.geminiImageModel,
+    })
+  } catch (err: any) {
+    request.log.error({ err }, 'falha ao persistir config no redis')
+  }
 
   return reply.send({
     ok: true,

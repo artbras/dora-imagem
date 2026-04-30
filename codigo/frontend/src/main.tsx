@@ -266,7 +266,21 @@ function App() {
       setTasks(data.tasks || [])
       setProgress(data.progress || null)
     } catch (e: any) {
-      setMsg(`Erro ao carregar job: ${String(e?.message || e)}`)
+      const errorMsg = String(e?.message || e)
+      if (errorMsg.toLowerCase().includes('unauthorized')) {
+        try {
+          const { data } = await supabase.auth.refreshSession()
+          if (data?.session) setSession(data.session)
+          const retry = await apiGet(`/jobs/${targetJobId}`)
+          setJobStatus(retry.job?.status || '')
+          setTasks(retry.tasks || [])
+          setProgress(retry.progress || null)
+          return
+        } catch {
+          // fallback to user-facing message below
+        }
+      }
+      setMsg(`Erro ao carregar job: ${errorMsg}`)
     } finally {
       loadJobInFlight.current = false
     }

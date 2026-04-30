@@ -63,9 +63,9 @@ const supabase = createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY)
 const queue = new Queue(env.QUEUE_NAME, { connection: { url: env.REDIS_URL } })
 const redis = new Redis(env.REDIS_URL)
 
-const OPENAI_IMAGE_MODELS = ['gpt-image-1', 'gpt-image-1.5'] as const
+const OPENAI_IMAGE_MODELS = ['gpt-image-1', 'gpt-image-1.5', 'gpt-image-2'] as const
 const GEMINI_IMAGE_MODELS = ['gemini-2.5-flash-image', 'gemini-3-pro-image-preview', 'gemini-3.1-flash-image-preview'] as const
-const DEFAULT_OPENAI_IMAGE_MODEL = 'gpt-image-1.5'
+const DEFAULT_OPENAI_IMAGE_MODEL = 'gpt-image-2'
 const DEFAULT_GEMINI_IMAGE_MODEL = 'gemini-3-pro-image-preview'
 
 const CFG_OPENAI_MODEL_KEY = 'dora:config:openai_image_model'

@@ -40,9 +40,9 @@ function App() {
   const [progress, setProgress] = useState<{ total: number; approved: number; progressPct: number } | null>(null)
 
   const [configLlm, setConfigLlm] = useState<'gpt' | 'nano_banana'>('nano_banana')
-  const [openaiImageModel, setOpenaiImageModel] = useState('gpt-image-1.5')
+  const [openaiImageModel, setOpenaiImageModel] = useState('gpt-image-2')
   const [geminiImageModel, setGeminiImageModel] = useState('gemini-3-pro-image-preview')
-  const [openaiOptions, setOpenaiOptions] = useState<string[]>(['gpt-image-1', 'gpt-image-1.5'])
+  const [openaiOptions, setOpenaiOptions] = useState<string[]>(['gpt-image-1', 'gpt-image-1.5', 'gpt-image-2'])
   const [geminiOptions, setGeminiOptions] = useState<string[]>(['gemini-2.5-flash-image', 'gemini-3-pro-image-preview', 'gemini-3.1-flash-image-preview'])
   const [promptPositive, setPromptPositive] = useState('')
   const [promptNegative, setPromptNegative] = useState('')
@@ -201,11 +201,11 @@ function App() {
       setModel(llm)
       setPromptPositive(String(cfg.prompt_positive || ''))
       setPromptNegative(String(cfg.prompt_negative || ''))
-      const openaiList = Array.isArray(data?.options?.openai_image_models) ? data.options.openai_image_models.map(String) : ['gpt-image-1', 'gpt-image-1.5']
+      const openaiList = Array.isArray(data?.options?.openai_image_models) ? data.options.openai_image_models.map(String) : ['gpt-image-1', 'gpt-image-1.5', 'gpt-image-2']
       const geminiList = Array.isArray(data?.options?.gemini_image_models) ? data.options.gemini_image_models.map(String) : ['gemini-2.5-flash-image', 'gemini-3-pro-image-preview', 'gemini-3.1-flash-image-preview']
       setOpenaiOptions(openaiList)
       setGeminiOptions(geminiList)
-      setOpenaiImageModel(String(cfg.openai_image_model || openaiList[0] || 'gpt-image-1.5'))
+      setOpenaiImageModel(String(cfg.openai_image_model || openaiList[0] || 'gpt-image-2'))
       setGeminiImageModel(String(cfg.gemini_image_model || geminiList[0] || 'gemini-3-pro-image-preview'))
     } catch (e: any) {
       setMsg(`Erro ao carregar config: ${String(e?.message || e)}`)

@@ -201,7 +201,8 @@ function App() {
       setModel(llm)
       setPromptPositive(String(cfg.prompt_positive || ''))
       setPromptNegative(String(cfg.prompt_negative || ''))
-      const openaiList = Array.isArray(data?.options?.openai_image_models) ? data.options.openai_image_models.map(String) : ['gpt-image-1', 'gpt-image-1.5', 'gpt-image-2']
+      const openaiListRaw = Array.isArray(data?.options?.openai_image_models) ? data.options.openai_image_models.map(String) : ['gpt-image-1', 'gpt-image-1.5', 'gpt-image-2']
+      const openaiList = Array.from(new Set([...openaiListRaw, 'gpt-image-2']))
       const geminiList = Array.isArray(data?.options?.gemini_image_models) ? data.options.gemini_image_models.map(String) : ['gemini-2.5-flash-image', 'gemini-3-pro-image-preview', 'gemini-3.1-flash-image-preview']
       setOpenaiOptions(openaiList)
       setGeminiOptions(geminiList)

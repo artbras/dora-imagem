@@ -411,9 +411,23 @@ app.get('/jobs/:id', async (request, reply) => {
     .limit(1)
     .maybeSingle()
 
-  const tasksWithPreview = (tasks || []).map((t: any) =>
-    generatedTask && t.id === generatedTask.id ? { ...t, output_temp_url: generatedTask.output_temp_url } : t,
-  )
+  const { data: logs } = await supabase
+    .from('processing_logs')
+    .select('task_id,message,created_at')
+    .eq('job_id', params.id)
+    .order('created_at', { ascending: false })
+
+  const latestMessageByTask = new Map<string, string>()
+  for (const row of logs || []) {
+    if (!latestMessageByTask.has(String((row as any).task_id))) {
+      latestMessageByTask.set(String((row as any).task_id), String((row as any).message || ''))
+    }
+  }
+
+  const tasksWithPreview = (tasks || []).map((t: any) => {
+    const base = generatedTask && t.id === generatedTask.id ? { ...t, output_temp_url: generatedTask.output_temp_url } : t
+    return { ...base, last_error_message: latestMessageByTask.get(String(t.id)) || null }
+  })
 
   const total = (tasks || []).length
   const approved = (tasks || []).filter((t: any) => t.status === 'approved').length

@@ -8,6 +8,7 @@ type JobTask = {
   base_image_id: string
   output_image_id?: string | null
   output_temp_url?: string | null
+  last_error_message?: string | null
   status: 'pending' | 'generated' | 'approved' | 'rejected'
   attempts: number
   position: number
@@ -56,12 +57,17 @@ function App() {
   const [autoSequenceMode, setAutoSequenceMode] = useState(false)
 
   const generatedTask = useMemo(() => tasks.find((t) => t.status === 'generated') || null, [tasks])
+  const latestRejectedTask = useMemo(() => {
+    const rejected = tasks.filter((t) => t.status === 'rejected')
+    return rejected.length ? rejected.sort((a, b) => b.position - a.position)[0] : null
+  }, [tasks])
   const filteredBaseFiles = useMemo(() => {
     const term = baseSearch.trim().toLowerCase()
     if (term.length < 3) return baseFiles
     return baseFiles.filter((f) => String(f.name || '').toLowerCase().includes(term))
   }, [baseFiles, baseSearch])
   const loadJobInFlight = useRef(false)
+  const lastErrorPopupRef = useRef<string | null>(null)
   const autoSequenceInFlight = useRef(false)
 
   useEffect(() => {
@@ -378,6 +384,14 @@ function App() {
     return () => clearInterval(t)
   }, [jobId, jobStatus])
 
+  useEffect(() => {
+    const msg = latestRejectedTask?.last_error_message?.trim()
+    if (!msg) return
+    if (lastErrorPopupRef.current === msg) return
+    lastErrorPopupRef.current = msg
+    window.alert(`Falha no job: ${msg}`)
+  }, [latestRejectedTask?.last_error_message])
+
   // Sequência automática: salva a gerada atual e segue até concluir todas
   useEffect(() => {
     if (!autoSequenceMode) return
@@ -583,10 +597,18 @@ function App() {
 
               <h4>Tela de aprovação</h4>
               {!generatedTask ? (
-                <div className="row" style={{ justifyContent: 'space-between', alignItems: 'center' }}>
-                  <p>Nenhuma imagem aguardando aprovação.</p>
-                  {jobStatus === 'completed' && (
-                    <button type="button" onClick={() => window.location.reload()}>LIMPAR</button>
+                <div>
+                  <div className="row" style={{ justifyContent: 'space-between', alignItems: 'center' }}>
+                    <p>Nenhuma imagem aguardando aprovação.</p>
+                    {jobStatus === 'completed' && (
+                      <button type="button" onClick={() => window.location.reload()}>LIMPAR</button>
+                    )}
+                  </div>
+                  {latestRejectedTask?.last_error_message && (
+                    <div className="card inline" style={{ marginTop: 10, border: '1px solid rgba(239,68,68,.4)', background: 'rgba(239,68,68,.1)' }}>
+                      <b style={{ color: '#fca5a5' }}>Motivo do erro no job</b>
+                      <p style={{ marginTop: 6, color: '#fecaca', wordBreak: 'break-word' }}>{latestRejectedTask.last_error_message}</p>
+                    </div>
                   )}
                 </div>
               ) : (

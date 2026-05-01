@@ -303,7 +303,8 @@ function App() {
           }
           return
         } catch {
-          // fallback to user-facing message below
+          setMsg('Sessão expirada/ inválida ao consultar o job. Faça login novamente e recarregue a página para ver o motivo da falha.')
+          return
         }
       }
       setMsg(`Erro ao carregar job: ${errorMsg}`)

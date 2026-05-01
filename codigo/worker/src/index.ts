@@ -310,6 +310,8 @@ async function processNextImage(jobId: string) {
       .update({ status: 'rejected', attempts: nextAttempts })
       .eq('id', task.id)
 
+    const errorMessage = String(error?.message || error)
+
     await writeLog({
       jobId,
       taskId: task.id,
@@ -317,8 +319,14 @@ async function processNextImage(jobId: string) {
       processingTimeMs: Date.now() - startedAt,
       attempts: nextAttempts,
       status: 'failed',
-      message: String(error?.message || error),
+      message: errorMessage,
     })
+
+    const isModelAccessError = /must be verified to use the model|model_not_found|not allowed to use/i.test(errorMessage)
+    if (isModelAccessError) {
+      await supabase.from('jobs').update({ status: 'failed' }).eq('id', jobId)
+      return
+    }
 
     throw error
   }

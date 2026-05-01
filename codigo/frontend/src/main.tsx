@@ -588,6 +588,14 @@ function App() {
             <section className="card">
               <h3>Job atual</h3>
               <p>Status: {jobStatus}</p>
+              {jobStatus === 'failed' && (
+                <div className="card inline" style={{ marginTop: 8, border: '1px solid rgba(239,68,68,.4)', background: 'rgba(239,68,68,.1)' }}>
+                  <b style={{ color: '#fca5a5' }}>Job falhou</b>
+                  <p style={{ marginTop: 6, color: '#fecaca' }}>
+                    A geração não concluiu. Verifique o motivo detalhado no bloco "Motivo do erro no job" abaixo.
+                  </p>
+                </div>
+              )}
               <p>Progresso: {progress?.approved ?? 0}/{progress?.total ?? 0} ({progress?.progressPct ?? 0}%)</p>
               <div className="progress-wrap" aria-label="Progresso da geração">
                 <div className="progress-bar" style={{ width: `${progress?.progressPct ?? 0}%` }} />

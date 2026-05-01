@@ -386,11 +386,12 @@ function App() {
 
   useEffect(() => {
     const msg = latestRejectedTask?.last_error_message?.trim()
-    if (!msg) return
-    if (lastErrorPopupRef.current === msg) return
-    lastErrorPopupRef.current = msg
+    if (!msg || !jobId) return
+    const popupKey = `${jobId}::${msg}`
+    if (lastErrorPopupRef.current === popupKey) return
+    lastErrorPopupRef.current = popupKey
     window.alert(`Falha no job: ${msg}`)
-  }, [latestRejectedTask?.last_error_message])
+  }, [jobId, latestRejectedTask?.last_error_message])
 
   // Sequência automática: salva a gerada atual e segue até concluir todas
   useEffect(() => {

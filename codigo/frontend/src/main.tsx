@@ -268,9 +268,20 @@ function App() {
     loadJobInFlight.current = true
     try {
       const data = await apiGet(`/jobs/${targetJobId}`)
-      setJobStatus(data.job?.status || '')
-      setTasks(data.tasks || [])
+      const nextStatus = data.job?.status || ''
+      const nextTasks = data.tasks || []
+      setJobStatus(nextStatus)
+      setTasks(nextTasks)
       setProgress(data.progress || null)
+
+      const rejectedWithReason = (nextTasks as JobTask[])
+        .filter((t) => t.status === 'rejected' && !!t.last_error_message)
+        .sort((a, b) => b.position - a.position)[0]
+
+      if (rejectedWithReason?.last_error_message) {
+        const explicit = `Job falhou: ${rejectedWithReason.last_error_message}`
+        setMsg(explicit)
+      }
     } catch (e: any) {
       const errorMsg = String(e?.message || e)
       if (errorMsg.toLowerCase().includes('unauthorized')) {
@@ -278,9 +289,18 @@ function App() {
           const { data } = await supabase.auth.refreshSession()
           if (data?.session) setSession(data.session)
           const retry = await apiGet(`/jobs/${targetJobId}`)
-          setJobStatus(retry.job?.status || '')
-          setTasks(retry.tasks || [])
+          const retryStatus = retry.job?.status || ''
+          const retryTasks = retry.tasks || []
+          setJobStatus(retryStatus)
+          setTasks(retryTasks)
           setProgress(retry.progress || null)
+
+          const rejectedWithReason = (retryTasks as JobTask[])
+            .filter((t) => t.status === 'rejected' && !!t.last_error_message)
+            .sort((a, b) => b.position - a.position)[0]
+          if (rejectedWithReason?.last_error_message) {
+            setMsg(`Job falhou: ${rejectedWithReason.last_error_message}`)
+          }
           return
         } catch {
           // fallback to user-facing message below

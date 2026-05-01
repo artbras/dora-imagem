@@ -259,12 +259,6 @@ function App() {
       setMsg('Selecione ao menos 1 imagem base e 1 imagem referência.')
       return
     }
-    if (model === 'gpt' && openaiImageModel === 'gpt-image-2') {
-      const warning = 'Bloqueado temporariamente: o modelo gpt-image-2 está retornando 403 de verificação de organização na OpenAI para esta credencial. Troque para gpt-image-1.5 em /config para concluir os jobs.'
-      setMsg(warning)
-      window.alert(warning)
-      return
-    }
     setBusy(true)
     try {
       const created = await apiSend('/jobs', 'POST', {
@@ -326,11 +320,19 @@ function App() {
           }
           return
         } catch {
-          setMsg('Sessão expirada/ inválida ao consultar o job. Faça login novamente e recarregue a página para ver o motivo da falha.')
+          setJobStatus('failed')
+          setAutoSequenceMode(false)
+          const reason = 'Sessão expirada/inválida ao consultar o job (401). O processamento foi interrompido na interface. Faça login novamente para continuar e ver o motivo completo.'
+          setMsg(reason)
+          window.alert(reason)
           return
         }
       }
-      setMsg(`Erro ao carregar job: ${errorMsg}`)
+      setJobStatus('failed')
+      setAutoSequenceMode(false)
+      const reason = `Erro ao carregar job. Processamento interrompido na interface. Motivo: ${errorMsg}`
+      setMsg(reason)
+      window.alert(reason)
     } finally {
       loadJobInFlight.current = false
     }
@@ -632,14 +634,6 @@ function App() {
             <section className="card">
               <h3>Job atual</h3>
               <p>Status: {jobStatus}</p>
-              {model === 'gpt' && openaiImageModel === 'gpt-image-2' && (
-                <div className="card inline" style={{ marginTop: 8, border: '1px solid rgba(245,158,11,.45)', background: 'rgba(245,158,11,.12)' }}>
-                  <b style={{ color: '#fcd34d' }}>Atenção: gpt-image-2 bloqueado no provider</b>
-                  <p style={{ marginTop: 6, color: '#fde68a' }}>
-                    A OpenAI está retornando 403 de verificação da organização para este modelo. Use gpt-image-1.5 em /config até a liberação.
-                  </p>
-                </div>
-              )}
               {jobStatus === 'failed' && (
                 <div className="card inline" style={{ marginTop: 8, border: '1px solid rgba(239,68,68,.4)', background: 'rgba(239,68,68,.1)' }}>
                   <b style={{ color: '#fca5a5' }}>Job falhou</b>

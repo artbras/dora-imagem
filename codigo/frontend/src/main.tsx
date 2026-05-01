@@ -68,6 +68,7 @@ function App() {
   }, [baseFiles, baseSearch])
   const loadJobInFlight = useRef(false)
   const lastErrorPopupRef = useRef<string | null>(null)
+  const lastAuthPopupRef = useRef<string | null>(null)
   const autoSequenceInFlight = useRef(false)
 
   useEffect(() => {
@@ -132,10 +133,23 @@ function App() {
     return res
   }
 
+  function handleUnauthorized(path: string) {
+    const key = `${route}::${path}`
+    if (lastAuthPopupRef.current !== key) {
+      lastAuthPopupRef.current = key
+      const text = 'Sessão expirada ou inválida. Faça login novamente para continuar e ver o motivo das falhas do job.'
+      setMsg(text)
+      window.alert(text)
+    }
+  }
+
   async function apiGet(path: string) {
     const res = await fetchWithAuthRetry(`${apiBase}${path}`)
     const data = await res.json().catch(() => ({}))
-    if (!res.ok) throw new Error(data?.error || `Erro ${res.status}`)
+    if (!res.ok) {
+      if (res.status === 401) handleUnauthorized(path)
+      throw new Error(data?.error || `Erro ${res.status}`)
+    }
     return data
   }
 
@@ -147,7 +161,10 @@ function App() {
       body: hasBody ? JSON.stringify(body) : undefined,
     })
     const data = await res.json().catch(() => ({}))
-    if (!res.ok) throw new Error(data?.error || `Erro ${res.status}`)
+    if (!res.ok) {
+      if (res.status === 401) handleUnauthorized(path)
+      throw new Error(data?.error || `Erro ${res.status}`)
+    }
     return data
   }
 

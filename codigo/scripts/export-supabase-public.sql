@@ -40,23 +40,21 @@ ORDER BY tablename;
 
 \echo [3/5] Exportando estado das sequences (setval) para SQL...
 \o :export_dir/sequences.sql
+SELECT '-- sequence state export generated at ' || now() || E'\n';
 SELECT format(
-  'SELECT setval(%L, %s, true);',
-  pg_get_serial_sequence(format('%I.%I', n.nspname, c.relname), a.attname),
-  COALESCE((SELECT max_val FROM (
-    SELECT max((format('%I', a.attname))::text::bigint) AS max_val
-    FROM pg_catalog.pg_attribute a2
-    WHERE a2.attrelid = c.oid AND a2.attname = a.attname
-  ) x), 1)
+  E'SELECT setval(%L, COALESCE((SELECT max(%I) FROM %I.%I), 1), true);',
+  pg_get_serial_sequence(format('%I.%I', t.schemaname, t.tablename), c.column_name),
+  c.column_name,
+  t.schemaname,
+  t.tablename
 )
-FROM pg_class c
-JOIN pg_namespace n ON n.oid = c.relnamespace
-JOIN pg_attribute a ON a.attrelid = c.oid
-WHERE c.relkind = 'r'
-  AND n.nspname = 'public'
-  AND a.attnum > 0
-  AND NOT a.attisdropped
-  AND pg_get_serial_sequence(format('%I.%I', n.nspname, c.relname), a.attname) IS NOT NULL;
+FROM pg_tables t
+JOIN information_schema.columns c
+  ON c.table_schema = t.schemaname
+ AND c.table_name = t.tablename
+WHERE t.schemaname = 'public'
+  AND pg_get_serial_sequence(format('%I.%I', t.schemaname, t.tablename), c.column_name) IS NOT NULL
+ORDER BY t.tablename, c.column_name;
 \o
 
 \echo [4/5] Gerando manifesto com row counts...

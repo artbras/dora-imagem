@@ -661,7 +661,7 @@ function App() {
                       <button type="button" onClick={() => window.location.reload()}>LIMPAR</button>
                     )}
                   </div>
-                  {latestRejectedTask?.last_error_message && (
+                  {jobStatus !== 'failed' && latestRejectedTask?.last_error_message && (
                     <div className="card inline" style={{ marginTop: 10, border: '1px solid rgba(239,68,68,.4)', background: 'rgba(239,68,68,.1)' }}>
                       <b style={{ color: '#fca5a5' }}>Motivo do erro no job</b>
                       <p style={{ marginTop: 6, color: '#fecaca', wordBreak: 'break-word' }}>{latestRejectedTask.last_error_message}</p>

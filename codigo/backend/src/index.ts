@@ -20,7 +20,7 @@ type TokenRow = {
 type JobRow = {
   id: string
   user_email: string
-  status: 'pending' | 'processing' | 'completed'
+  status: 'pending' | 'processing' | 'completed' | 'failed'
   model: 'gpt' | 'nano_banana'
   reference_image_id: string
   base_image_ids: string[]
@@ -174,10 +174,13 @@ async function updateJobProgress(jobId: string) {
 
   const list = tasks || []
   const approvedCount = list.filter((t: any) => t.status === 'approved').length
-  const hasOpen = list.some((t: any) => ['pending', 'generated', 'rejected'].includes(String(t.status)))
-  const nextOpen = list.find((t: any) => ['pending', 'generated', 'rejected'].includes(String(t.status)))
+  const rejectedCount = list.filter((t: any) => t.status === 'rejected').length
+  const hasOpen = list.some((t: any) => ['pending', 'generated'].includes(String(t.status)))
+  const nextOpen = list.find((t: any) => ['pending', 'generated'].includes(String(t.status)))
   const nextIndex = nextOpen ? Number(nextOpen.position || approvedCount) : approvedCount
-  const nextStatus: JobRow['status'] = hasOpen ? 'processing' : 'completed'
+  const nextStatus: JobRow['status'] = hasOpen
+    ? 'processing'
+    : (rejectedCount > 0 ? 'failed' : 'completed')
 
   const { error: updateError } = await supabase
     .from('jobs')

@@ -1,7 +1,7 @@
 create table if not exists public.jobs (
   id uuid primary key default gen_random_uuid(),
   user_email text not null,
-  status text not null check (status in ('pending','processing','completed')) default 'pending',
+  status text not null check (status in ('pending','processing','completed','failed')) default 'pending',
   model text not null check (model in ('gpt','nano_banana')) default 'gpt',
   reference_image_id text not null,
   base_image_ids jsonb not null default '[]'::jsonb,

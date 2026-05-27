@@ -323,12 +323,15 @@ async function processNextImage(jobId: string) {
     })
 
     const isModelAccessError = /must be verified to use the model|model_not_found|not allowed to use/i.test(errorMessage)
-    if (isModelAccessError) {
+    const isBillingOrQuotaError = /monthly spending cap|billing|quota|resource exhausted|rate limit/i.test(errorMessage)
+
+    if (isModelAccessError || isBillingOrQuotaError) {
       await supabase.from('jobs').update({ status: 'failed' }).eq('id', jobId)
       return
     }
 
-    throw error
+    await supabase.from('jobs').update({ status: 'failed' }).eq('id', jobId)
+    return
   }
 }
 
